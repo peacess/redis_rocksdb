@@ -1,0 +1,12 @@
+[package]
+name = "redis_rocksdb"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name="redis_rocksdb"
+path="src/lib.rs"
+
+[dependencies]
+log = "0.4.14"
+rocksdb = { version = "0.18.0", features = ["multi-threaded-cf"] }
