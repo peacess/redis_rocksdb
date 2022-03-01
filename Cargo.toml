@@ -2,10 +2,18 @@
 name = "redis_rocksdb"
 version = "0.1.0"
 edition = "2021"
+authors = ["Peace <peacess@163.com>"]
+exclude = [".gitignore"]
+description = "rust implement structure kv(key/value) embedded database, storage by rocksdb"
+repository = "https://github.com/selfopen/redis_rocksdb"
+homepage = "https://github.com/selfopen/redis_rocksdb"
+keywords = ["redis", "rocksdb", "embedded database", "kv"]
+categories = ["database"]
+license = "Apache-2.0"
 
 [lib]
-name="redis_rocksdb"
-path="src/lib.rs"
+name = "redis_rocksdb"
+path = "src/lib.rs"
 
 [dependencies]
 log = "0.4.14"
