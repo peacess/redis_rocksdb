@@ -1,25 +1,17 @@
 use crate::{Bytes, Direction};
 use crate::Error;
 
-trait List {
-    fn blpop<K: Bytes, V: Bytes>(key: K, timeout: i64) -> Result<V, Error> {
-        unimplemented!()
-    }
-    fn brpop<K: Bytes, V: Bytes>(key: K, timeout: i64) -> Result<V, Error> {
-        unimplemented!()
-    }
-    fn brpoplpush<K: Bytes, V: Bytes>(srckey: K, dstkey: K, timeout: i64) -> Result<V, Error> {
-        unimplemented!()
-    }
+pub trait RedisList {
+    fn blpop<K: Bytes, V: Bytes>(key: K, timeout: i64) -> Result<V, Error>;
+    fn brpop<K: Bytes, V: Bytes>(key: K, timeout: i64) -> Result<V, Error>;
+    fn brpoplpush<K: Bytes, V: Bytes>(srckey: K, dstkey: K, timeout: i64) -> Result<V, Error>;
     fn lindex<K: Bytes, V: Bytes>(key: K, index: i32) -> Result<V, Error>;
     fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(key: K, pivot: P, value: V) -> Result<(), Error>;
     fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(key: K, pivot: P, value: V) -> Result<(), Error>;
 
     fn llen<K: Bytes>(key: K) -> Result<i32, Error>;
 
-    fn lmove<K: Bytes, V: Bytes>(srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error> {
-        unimplemented!()
-    }
+    fn lmove<K: Bytes, V: Bytes>(srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error>;
     fn lmpop<K: Bytes>(numkeys: i32, key: K, dir: Direction, count: i32);
     fn lpop<K: Bytes, V: Bytes>(key: K) -> Result<V, Error>;
     fn lpush<K: Bytes, V: Bytes>(key: K, value: V) -> Result<(), Error>;
