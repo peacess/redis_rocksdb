@@ -1,4 +1,4 @@
-pub use rocksdb::Error;
+extern crate core;
 
 pub use hash::*;
 pub use list::*;

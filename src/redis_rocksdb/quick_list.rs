@@ -1,109 +1,113 @@
-use std::mem;
+use core::{mem, ptr};
 
-use crate::{EndianScalar, MetaKey};
+use ckb_rocksdb::prelude::{Get, Put};
+use ckb_rocksdb::ReadOptions;
 
-struct QuickList {
-    /// node的数量
-    node_size: i16,
+use crate::{EndianScalar, Error, LenType, MetaKey, read_int, read_len_type, RedisRocksdb, SIZE_LEN_TYPE, write_len_type};
+use crate::redis_rocksdb::quick_list_node::QuickListNode;
+
+struct _QuickList {
     /// list的len
-    values_size: i32,
+    len_list: LenType,
     /// 用于产生下一个 node的 meta key
     meta_key: MetaKey,
     left: Option<MetaKey>,
     right: Option<MetaKey>,
-    middle: Option<MetaKey>,
+    // //todo 对于大的list的read进行优化
+    // index_middle: LenType,
+    // middle: Option<MetaKey>,
 }
 
-///
-/// ```rust
-/// use redis_rocksdb::MetaKey;
-///
-/// struct QuickListNode{
-///     value_size: i32,
-///     left: Option<MetaKey>,
-///     right: Option<MetaKey>,
-///     len_value: i32,
-///     value: &[u8],
-/// }
-/// ```
-struct QuickListNode(Vec<u8>);
+pub struct QuickList([u8; mem::size_of::<_QuickList>()]);
 
-impl From<Vec<u8>> for QuickListNode {
-    fn from(bytes: Vec<u8>) -> Self {
-        let mut bytes = bytes;
-        if bytes.len() < QuickListNode::len_init {
-            bytes.resize(QuickListNode::len_init, 0);
+impl QuickList {
+    const offset_meta_key: usize = SIZE_LEN_TYPE;
+    const offset_left: usize = QuickList::offset_meta_key + mem::size_of::<MetaKey>();
+    const offset_right: usize = QuickList::offset_left + mem::size_of::<MetaKey>();
+
+    pub fn new() -> Self {
+        QuickList([0; mem::size_of::<_QuickList>()])
+    }
+
+    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickList>, Error> {
+        let v = db.get(key)?;
+        match v {
+            None => Ok(None),
+            Some(v) => {
+                if v.len() == mem::size_of::<QuickList>() {
+                    let t: [u8; mem::size_of::<QuickList>()] = v.to_vec().as_slice().try_into()?;
+                    Ok(Some(QuickList::from(t)))
+                } else {
+                    Err(Error::new("can not convert vec to QuickList, the len is not eq".to_owned()))
+                }
+            }
         }
-        QuickListNode(bytes)
+    }
+
+    pub(crate) fn put(db: &RedisRocksdb, key: &[u8], l: &QuickList) -> Result<(), Error> {
+        db.db.put(key, l)?;
+        Ok(())
+    }
+
+    pub(crate) fn get_node<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
+        let v = db.get(key)?;
+        match v {
+            None => Ok(None),
+            Some(v) => {
+                if v.len() == mem::size_of::<QuickListNode>() {
+                    let t: [u8; mem::size_of::<QuickListNode>()] = v.to_vec().as_slice().try_into()?;
+                    Ok(Some(QuickListNode::from(t)))
+                } else {
+                    Err(Error::new("can not convert vec to QuickList, the len is not eq".to_owned()))
+                }
+            }
+        }
+    }
+
+    //计算在 ziplist中value个数
+    pub fn len_list(&self) -> LenType {
+        read_len_type(&self.0)
+    }
+
+    pub fn set_len_list(&mut self, len: LenType) {
+        write_len_type(&mut self.0, len)
+    }
+
+
+    pub fn meta_key(&self) -> Option<&MetaKey> {
+        MetaKey::read(&self.0[QuickList::offset_meta_key..])
+    }
+
+    pub fn set_meta_key(&mut self, meta_key: &Option<MetaKey>) {
+        MetaKey::write(&mut self.0[QuickList::offset_meta_key..], meta_key)
+    }
+
+    pub fn left(&self) -> Option<&MetaKey> {
+        MetaKey::read(&self.0[QuickList::offset_left..])
+    }
+
+    pub fn set_left(&mut self, meta_key: &Option<MetaKey>) {
+        MetaKey::write(&mut self.0[QuickList::offset_left..], meta_key)
+    }
+
+    pub fn right(&self) -> Option<&MetaKey> {
+        MetaKey::read(&self.0[QuickList::offset_right..])
+    }
+
+    pub fn set_right(&mut self, meta_key: &Option<MetaKey>) {
+        MetaKey::write(&mut self.0[QuickList::offset_right..], meta_key)
     }
 }
 
-impl AsRef<[u8]> for QuickListNode {
+
+impl From<[u8; mem::size_of::<QuickList>()]> for QuickList {
+    fn from(bytes: [u8; mem::size_of::<QuickList>()]) -> Self {
+        QuickList(bytes)
+    }
+}
+
+impl AsRef<[u8]> for QuickList {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
-
-impl QuickListNode {
-    const len_init: usize = 32;
-    const len_value_size: usize = mem::size_of::<i32>();
-    const offset_left: usize = QuickListNode::len_value_size;
-    const offset_right: usize = QuickListNode::offset_left + mem::size_of::<MetaKey>();
-    pub fn new() -> Self {
-        QuickListNode(Vec::from([0; QuickListNode::len_init]))
-    }
-
-    pub fn memory_size(&self) -> i32 {
-        self.0.len() as i32
-    }
-
-    pub fn value_size(&self) -> i32 {
-        let mut mem = core::mem::MaybeUninit::<i32>::uninit();
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                self.0[..QuickListNode::len_value_size].as_ptr(),
-                mem.as_mut_ptr() as *mut u8,
-                core::mem::size_of::<i32>(),
-            );
-            mem.assume_init()
-        }.from_little_endian()
-    }
-
-    pub fn set_value_size(&mut self, value_size: i32) {
-        let x_le = value_size.to_little_endian();
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                &x_le as *const i32 as *const u8,
-                self.0[..QuickListNode::len_value_size].as_mut_ptr(),
-                QuickListNode::len_value_size,
-            );
-        }
-    }
-
-    pub fn left(&self) -> Option<&MetaKey> {
-        const Len: usize = mem::size_of::<MetaKey>();
-        let t = &self.0[QuickListNode::offset_left..QuickListNode::offset_left + Len];
-        let zero_ = [0u8; Len].as_slice();
-        match t {
-            zero_ => None,
-            _ => {
-                Some(unsafe { &*(t.as_ptr() as *const MetaKey) })
-            }
-        }
-    }
-
-    pub fn right(&self) -> Option<&MetaKey> {
-        const Len: usize = mem::size_of::<MetaKey>();
-        let t = &self.0[QuickListNode::offset_right..QuickListNode::offset_right + Len];
-        let zero_ = [0u8; Len].as_slice();
-        match t {
-            zero_ => None,
-            _ => {
-                Some(unsafe { &*(t.as_ptr() as *const MetaKey) })
-            }
-        }
-    }
-}
-
-
-struct ZipList<'a>(&'a [u8]);

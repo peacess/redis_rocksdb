@@ -1,13 +1,9 @@
-use rocksdb::Error;
-
-use crate::{Bytes, Direction, RedisList};
-
 pub struct RedisRocksdb {
-    db: rocksdb::DB,
+    pub(crate) db: ckb_rocksdb::TransactionDB,
 }
 
 impl RedisRocksdb {
-    pub fn new(db: rocksdb::DB) -> Self {
+    pub fn new(db: ckb_rocksdb::TransactionDB) -> Self {
         RedisRocksdb {
             db,
         }
