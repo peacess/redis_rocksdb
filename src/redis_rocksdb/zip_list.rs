@@ -1,6 +1,7 @@
-use core::ptr;
+use core::{ptr,mem};
+use ckb_rocksdb::ReadOptions;
 
-use crate::{EndianScalar, LenType, read_int, read_len_type, SIZE_LEN_TYPE, write_int};
+use crate::{EndianScalar, LenType, read_int, read_len_type, SIZE_LEN_TYPE, write_int,Error};
 
 ///
 /// ```rust
@@ -49,6 +50,20 @@ impl ZipList {
                 p.offset(SIZE_LEN_TYPE as isize),
                 value.len(),
             );
+        }
+    }
+
+    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<ZipList>, Error> {
+        let v = db.get(key)?;
+        match v {
+            None => Ok(None),
+            Some(v) => {
+                if v.len() == mem::size_of::<ZipList>() {
+                    Ok(Some(ZipList::from(v.to_vec())))
+                } else {
+                    Err(Error::new("can not convert vec to ZipList, the len is not eq".to_owned()))
+                }
+            }
         }
     }
 

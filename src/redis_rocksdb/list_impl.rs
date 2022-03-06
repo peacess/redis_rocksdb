@@ -1,10 +1,12 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use ckb_rocksdb::prelude::TransactionBegin;
+use ckb_rocksdb::prelude::{Get, Put, TransactionBegin};
 
 use crate::{Bytes, Direction, Error, MetaKey, RedisList, RedisRocksdb};
 use crate::redis_rocksdb::quick_list::QuickList;
+use crate::redis_rocksdb::quick_list_node::QuickListNode;
+use crate::redis_rocksdb::zip_list::ZipList;
 
 /// [see] (https://xindoo.blog.csdn.net/article/details/109150975)
 /// ssdb没有实现list，只实现了queue
@@ -37,7 +39,7 @@ impl RedisList for RedisRocksdb {
 
     fn llen<K: Bytes>(&self, key: K) -> Result<i32, Error> {
         match QuickList::get(&self.db, key.as_ref())? {
-            None => Ok(0),
+            None => Ok(-1),
             Some(quick) => {
                 Ok(quick.len_list() as i32)
             }
@@ -59,11 +61,7 @@ impl RedisList for RedisRocksdb {
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, key.as_ref())? {
-            None => {
-                let q = QuickList::new();
-                QuickList::put(&self, key.as_ref(), &q)?;
-                q
-            }
+            None => QuickList::new(),
             Some(q) => q
         };
 
@@ -76,8 +74,59 @@ impl RedisList for RedisRocksdb {
                 key.set_key(hasher.finish());
                 key
             };
-            quick.set_meta_key(&Some(h));
-        } else {}
+            let node_key = Some(h);
+            quick.set_meta_key(&node_key);
+            quick.set_left(&node_key);
+            quick.set_right(&None);
+
+            let mut node = QuickListNode::new();
+            node.set_len_list(1);
+
+            let zip_key = quick.next_meta_key();
+            if zip_key.is_none() {
+                return Err(Error::new("next_meta_key return None".to_owned()));
+            }
+            node.set_values_key(&zip_key);
+
+            let mut zip = ZipList::new();
+            zip.set_len(1);
+            zip.push_right(value);
+
+            node.set_len_bytes(zip.as_ref().len() as u32);
+
+            tr.put(zip_key.as_ref(), zip.as_ref())?;
+            tr.put(node_key.as_ref(), node.as_ref())?;
+            tr.put(key.as_ref(), quick.as_ref())?;
+        } else {
+            let node_key = quick.right()?;
+            let mut node =  QuickListNode::get(node_key.as_ref())??;
+
+            /// zip中的元素过多，或内存过大，都会新增加node
+            if node.len_list() > QuickListNode::MAX_LEN || node.len_bytes() > QuickListNode::MAX_BYTES {
+                //增加node
+            }else{
+
+            }
+
+            let mut node = QuickListNode::new();
+            node.set_len_list(1);
+
+            let zip_key = quick.next_meta_key();
+            if zip_key.is_none() {
+                return Err(Error::new("next_meta_key return None".to_owned()));
+            }
+            node.set_values_key(&zip_key);
+
+            let mut zip = ZipList::new();
+            zip.set_len(1);
+            zip.push_right(value);
+
+            node.set_len_bytes(zip.as_ref().len() as u32);
+
+            tr.put(zip_key.as_ref(), zip.as_ref())?;
+            tr.put(node_key.as_ref(), node.as_ref())?;
+            tr.put(key.as_ref(), quick.as_ref())?;
+        }
         tr.commit()?;
         Ok(0)
     }

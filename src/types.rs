@@ -166,6 +166,7 @@ pub fn write_int<T: EndianScalar>(bytes: &mut [u8], value: T) {
 /// ```
 type MetaKeyArray = [u8; 10];
 
+#[derive(Clone,Debug,Eq)]
 pub struct MetaKey(MetaKeyArray);
 
 
@@ -197,6 +198,16 @@ impl MetaKey {
     }
 
     #[inline]
+    pub fn read_mut(bytes: &[u8]) -> Option<&mut MetaKey> {
+        let t = &bytes[..MetaKey::len_meta_key];
+        if t.eq(&[0u8; MetaKey::len_meta_key]) {
+            None
+        } else {
+            Some(unsafe { &mut *(t.as_ptr() as *mut MetaKey) })
+        }
+    }
+
+    #[inline]
     pub fn write(bytes: &mut [u8], value: &Option<MetaKey>) {
         match value {
             None => unsafe {
@@ -212,6 +223,12 @@ impl MetaKey {
         MetaKey([0; MetaKey::len_meta_key])
     }
 
+    pub fn new_add(&self) -> Self{
+        let mut n = MetaKey(self.0.clone());
+        n.add_sep(1);
+        n
+    }
+
     pub fn key(&self) -> u64 {
         read_int(&self.0)
     }
@@ -222,6 +239,11 @@ impl MetaKey {
 
     pub fn sep(&self) -> u16 {
         read_int(&self.0[MetaKey::len_key..])
+    }
+
+    pub fn add_sep(&mut self, diff: u16) {
+        let old: u16 = read_int(&self.0[MetaKey::len_key..]);
+        write_int(&mut self.0[MetaKey::len_key..], old + diff);
     }
 
     pub fn set_sep(&mut self, sep: u16) {

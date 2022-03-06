@@ -12,6 +12,7 @@ struct _QuickList {
     /// 用于产生下一个 node的 meta key
     meta_key: MetaKey,
     left: Option<MetaKey>,
+    /// 当只有一个node时， right == left
     right: Option<MetaKey>,
     // //todo 对于大的list的read进行优化
     // index_middle: LenType,
@@ -44,11 +45,6 @@ impl QuickList {
         }
     }
 
-    pub(crate) fn put(db: &RedisRocksdb, key: &[u8], l: &QuickList) -> Result<(), Error> {
-        db.db.put(key, l)?;
-        Ok(())
-    }
-
     pub(crate) fn get_node<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
         let v = db.get(key)?;
         match v {
@@ -64,6 +60,16 @@ impl QuickList {
         }
     }
 
+    pub(crate) fn next_meta_key(&mut self) -> Option<MetaKey> {
+        match MetaKey::read_mut(&self.0[QuickList::offset_meta_key..]) {
+            None => None,
+            Some(k) =>{
+                k.add_sep(1);
+                Some(k.clone())
+            }
+        }
+    }
+
     //计算在 ziplist中value个数
     pub fn len_list(&self) -> LenType {
         read_len_type(&self.0)
@@ -74,10 +80,12 @@ impl QuickList {
     }
 
 
+    #[inline]
     pub fn meta_key(&self) -> Option<&MetaKey> {
         MetaKey::read(&self.0[QuickList::offset_meta_key..])
     }
 
+    #[inline]
     pub fn set_meta_key(&mut self, meta_key: &Option<MetaKey>) {
         MetaKey::write(&mut self.0[QuickList::offset_meta_key..], meta_key)
     }

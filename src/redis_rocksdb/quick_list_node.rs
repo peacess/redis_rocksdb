@@ -1,6 +1,7 @@
 use core::mem;
+use ckb_rocksdb::ReadOptions;
 
-use crate::{LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
+use crate::{LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type,Error};
 
 ///
 /// ```rust
@@ -26,11 +27,29 @@ struct _QuickListNode {
 pub(crate) struct QuickListNode([u8; mem::size_of::<_QuickListNode>()]);
 
 impl QuickListNode {
-    const offset_left: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
-    const offset_right: usize = QuickListNode::offset_left + mem::size_of::<MetaKey>();
-    const offset_values_key: usize = QuickListNode::offset_right + mem::size_of::<MetaKey>();
+    pub const MAX_LEN:LenType = 124;
+    pub const MAX_BYTES: LenType = QuickListNode::MAX_LEN * 4;
+
+    const OFFSET_LEFT: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
+    const OFFSET_RIGHT: usize = QuickListNode::OFFSET_LEFT + mem::size_of::<MetaKey>();
+    const OFFSET_VALUES_KEY: usize = QuickListNode::OFFSET_RIGHT + mem::size_of::<MetaKey>();
     pub fn new() -> Self {
         QuickListNode([0; mem::size_of::<_QuickListNode>()])
+    }
+
+    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
+        let v = db.get(key)?;
+        match v {
+            None => Ok(None),
+            Some(v) => {
+                if v.len() == mem::size_of::<QuickListNode>() {
+                    let t: [u8; mem::size_of::<QuickListNode>()] = v.to_vec().as_slice().try_into()?;
+                    Ok(Some(QuickListNode::from(t)))
+                } else {
+                    Err(Error::new("can not convert vec to QuickListNode, the len is not eq".to_owned()))
+                }
+            }
+        }
     }
 
     //计算在 ziplist中value个数
@@ -52,27 +71,27 @@ impl QuickListNode {
     }
 
     pub fn left(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickListNode::offset_left..])
+        MetaKey::read(&self.0[QuickListNode::OFFSET_LEFT..])
     }
 
     pub fn set_left(&mut self, meta_key: &Option<MetaKey>) {
-        MetaKey::write(&mut self.0[QuickListNode::offset_left..], meta_key)
+        MetaKey::write(&mut self.0[QuickListNode::OFFSET_LEFT..], meta_key)
     }
 
     pub fn right(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickListNode::offset_right..])
+        MetaKey::read(&self.0[QuickListNode::OFFSET_RIGHT..])
     }
 
     pub fn set_right(&mut self, meta_key: &Option<MetaKey>) {
-        MetaKey::write(&mut self.0[QuickListNode::offset_right..], meta_key)
+        MetaKey::write(&mut self.0[QuickListNode::OFFSET_RIGHT..], meta_key)
     }
 
     pub fn values_key(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickListNode::offset_values_key..])
+        MetaKey::read(&self.0[QuickListNode::OFFSET_VALUES_KEY..])
     }
 
     pub fn set_values_key(&mut self, meta_key: &Option<MetaKey>) {
-        MetaKey::write(&mut self.0[QuickListNode::offset_values_key..], meta_key)
+        MetaKey::write(&mut self.0[QuickListNode::OFFSET_VALUES_KEY..], meta_key)
     }
 }
 

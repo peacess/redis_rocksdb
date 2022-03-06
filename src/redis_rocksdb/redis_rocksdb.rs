@@ -1,3 +1,4 @@
+
 pub struct RedisRocksdb {
     pub(crate) db: ckb_rocksdb::TransactionDB,
 }

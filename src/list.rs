@@ -9,6 +9,7 @@ pub trait RedisList {
     fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
     fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
 
+    // 返回值为-1表示还没有这个list
     fn llen<K: Bytes>(&self, key: K) -> Result<i32, Error>;
 
     fn lmove<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error>;
