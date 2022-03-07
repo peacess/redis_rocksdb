@@ -63,7 +63,7 @@ impl RedisList for RedisRocksdb {
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => {
                 let mut q = QuickList::new();
-                q.init_meta_key(list_key);
+                q.init_meta_key(list_key.as_ref());
                 q
             }
             Some(q) => q
@@ -73,9 +73,9 @@ impl RedisList for RedisRocksdb {
         Ok(re)
     }
 
-    fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error> {
+    fn lpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
         let tr = self.db.transaction_default();
-        let mut quick = match QuickList::get(&self.db, key.as_ref())? {
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(-1),
             Some(q) => q
         };

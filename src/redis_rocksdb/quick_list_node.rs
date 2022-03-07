@@ -1,6 +1,7 @@
 use core::mem;
 
-use ckb_rocksdb::ReadOptions;
+use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
+use ckb_rocksdb::prelude::Get;
 
 use crate::{Error, LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
 
@@ -38,8 +39,8 @@ impl QuickListNode {
         QuickListNode([0; mem::size_of::<_QuickListNode>()])
     }
 
-    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
-        let v = db.get(key)?;
+    pub(crate) fn get(tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
+        let v = tr.get(key)?;
         match v {
             None => Ok(None),
             Some(v) => {

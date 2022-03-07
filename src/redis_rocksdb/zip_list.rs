@@ -1,6 +1,7 @@
 use core::{mem, ptr};
 
-use ckb_rocksdb::ReadOptions;
+use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
+use ckb_rocksdb::prelude::Get;
 
 use crate::{EndianScalar, Error, LenType, read_int, read_len_type, SIZE_LEN_TYPE, write_int};
 
@@ -54,8 +55,8 @@ impl ZipList {
         }
     }
 
-    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<ZipList>, Error> {
-        let v = db.get(key)?;
+    pub(crate) fn get(tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<ZipList>, Error> {
+        let v = tr.get(key)?;
         match v {
             None => Ok(None),
             Some(v) => {

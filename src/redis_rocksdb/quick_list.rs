@@ -66,10 +66,11 @@ impl QuickList {
     }
 
 
-    pub(crate) fn lpush(&mut self, tr: &Transaction<TransactionDB>, key: &[u8], value: &[u8]) -> Result<i32, Error> {
+    pub(crate) fn lpush(&mut self, tr: &Transaction<TransactionDB>, list_key: &[u8], value: &[u8]) -> Result<i32, Error> {
         let mut quick = self;
         if quick.len_node() == 0 {
             //可能是第一次创建，也可能是删除后，没有数据了
+            let node_key = quick.next_meta_key().ok_or(Error::none_error("next_meta_key"))?;
             let mut node = QuickListNode::new();
             {
                 let zip_key = quick.next_meta_key().ok_or(Error::none_error("next_meta_key"))?;
@@ -190,7 +191,7 @@ impl QuickList {
             key
         };
 
-        MetaKey::write(&mut self.0[QuickList::offset_meta_key..], &Some(&meta_key))
+        MetaKey::write(&mut self.0[QuickList::offset_meta_key..], &Some(&meta_key));
         meta_key
     }
 
