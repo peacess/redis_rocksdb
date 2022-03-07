@@ -5,7 +5,7 @@ pub trait RedisList {
     fn blpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, Error>;
     fn brpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, Error>;
     fn brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, timeout: i64) -> Result<V, Error>;
-    fn lindex<K: Bytes, V: Bytes>(&self, key: K, index: i32) -> Result<V, Error>;
+    fn lindex<K: Bytes>(&self, key: K, index: i32) -> Result<Vec<u8>, Error>;
     fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
     fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
 

@@ -24,7 +24,9 @@ impl Error {
     pub fn into_string(self) -> String {
         self.into()
     }
+
     pub(crate) fn none_error(name: &str) -> Error { Error { message: format! {"{} is none", name} } }
+    pub(crate) fn not_find(name: &str) -> Error { Error { message: format! {"{} is not find", name} } }
 }
 
 impl AsRef<str> for Error {

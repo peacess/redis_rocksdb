@@ -34,6 +34,7 @@ impl AsRef<[u8]> for ZipList {
 
 impl ZipList {
     const len_init: usize = 32;
+    const offset_value: usize = SIZE_LEN_TYPE;
     pub fn new() -> Self {
         ZipList(Vec::from([0; ZipList::len_init]))
     }
@@ -153,5 +154,18 @@ impl ZipList {
 
             ZipList::write_value(value, self.0.as_mut_ptr().offset(offset));
         }
+    }
+
+    pub fn index(&self, index: i32) -> Option<&[u8]> {
+        if index >= self.len() as i32 {
+            return None;
+        }
+        let mut offset = ZipList::offset_value;
+        for i in 0..index {
+            let size_value = read_len_type(&self.0[offset..]);
+            offset += SIZE_LEN_TYPE + size_value as usize;
+        }
+        let size_value = read_len_type(&self.0[offset..]);
+        Some(&self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + size_value as usize])
     }
 }

@@ -2,6 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use ckb_rocksdb::prelude::{Get, Put, TransactionBegin};
+use ckb_rocksdb::WriteOptions;
 
 use crate::{Bytes, Direction, Error, LenType, MetaKey, RedisList, RedisRocksdb};
 use crate::redis_rocksdb::quick_list::QuickList;
@@ -25,8 +26,29 @@ impl RedisList for RedisRocksdb {
         todo!()
     }
 
-    fn lindex<K: Bytes, V: Bytes>(&self, key: K, index: i32) -> Result<V, Error> {
-        todo!()
+    fn lindex<K: Bytes>(&self, key: K, index: i32) -> Result<Vec<u8>, Error> {
+        let t = QuickList::get(&self.db, key.as_ref())?.ok_or(Error::not_find("key of list"))?;
+        if index >= t.len_list() as i32 {
+            return Err(Error::not_find(&format!("the index {}", index)));
+        }
+        //todo read only
+        let tr = self.db.transaction_default();
+        let node_key = t.left().ok_or(Error::none_error("left of quick list"))?;
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+        let mut it_index = 0i32;
+        it_index += node.len_list() as i32;
+        while index >= it_index {
+            let next_key = node.right().ok_or(Error::none_error("right node"))?;
+            node = QuickListNode::get(&tr, next_key.as_ref())?.ok_or(Error::none_error("next node"))?;
+            it_index += node.len_list() as i32;
+        }
+
+        let value_key = node.values_key().ok_or(Error::none_error("value key"))?;
+        let zip = ZipList::get(&tr, value_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let zip_index = index - (it_index - node.len_list() as i32);
+        let v = zip.index(zip_index).ok_or(Error::not_find(&format!("the index {}", index)))?;
+        tr.commit()?;
+        Ok(v.to_vec())
     }
 
     fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error> {
@@ -41,7 +63,7 @@ impl RedisList for RedisRocksdb {
         match QuickList::get(&self.db, key.as_ref())? {
             None => Ok(-1),
             Some(quick) => {
-                Ok(quick.len_node() as i32)
+                Ok(quick.len_list() as i32)
             }
         }
     }
