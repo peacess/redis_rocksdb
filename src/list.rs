@@ -15,8 +15,10 @@ pub trait RedisList {
     fn lmove<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error>;
     fn lmpop<K: Bytes>(&mut self, numkeys: i32, key: K, dir: Direction, count: i32);
     fn lpop<K: Bytes, V: Bytes>(&mut self, key: K) -> Result<V, Error>;
+    /// 返回len of list
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 
+    /// 返回len of list，如果list不存在返回值为 -1
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 
     fn lrange<K: Bytes, V: Bytes>(&self, key: K, start: i32, stop: i32) -> Result<Vec<V>, Error>;

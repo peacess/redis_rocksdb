@@ -1,7 +1,8 @@
 use core::mem;
+
 use ckb_rocksdb::ReadOptions;
 
-use crate::{LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type,Error};
+use crate::{Error, LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
 
 ///
 /// ```rust
@@ -27,7 +28,7 @@ struct _QuickListNode {
 pub(crate) struct QuickListNode([u8; mem::size_of::<_QuickListNode>()]);
 
 impl QuickListNode {
-    pub const MAX_LEN:LenType = 124;
+    pub const MAX_LEN: LenType = 124;
     pub const MAX_BYTES: LenType = QuickListNode::MAX_LEN * 4;
 
     const OFFSET_LEFT: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
@@ -74,7 +75,7 @@ impl QuickListNode {
         MetaKey::read(&self.0[QuickListNode::OFFSET_LEFT..])
     }
 
-    pub fn set_left(&mut self, meta_key: &Option<MetaKey>) {
+    pub fn set_left(&mut self, meta_key: &Option<&MetaKey>) {
         MetaKey::write(&mut self.0[QuickListNode::OFFSET_LEFT..], meta_key)
     }
 
@@ -82,7 +83,7 @@ impl QuickListNode {
         MetaKey::read(&self.0[QuickListNode::OFFSET_RIGHT..])
     }
 
-    pub fn set_right(&mut self, meta_key: &Option<MetaKey>) {
+    pub fn set_right(&mut self, meta_key: &Option<&MetaKey>) {
         MetaKey::write(&mut self.0[QuickListNode::OFFSET_RIGHT..], meta_key)
     }
 
@@ -90,7 +91,7 @@ impl QuickListNode {
         MetaKey::read(&self.0[QuickListNode::OFFSET_VALUES_KEY..])
     }
 
-    pub fn set_values_key(&mut self, meta_key: &Option<MetaKey>) {
+    pub fn set_values_key(&mut self, meta_key: &Option<&MetaKey>) {
         MetaKey::write(&mut self.0[QuickListNode::OFFSET_VALUES_KEY..], meta_key)
     }
 }

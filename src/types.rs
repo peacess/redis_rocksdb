@@ -21,10 +21,10 @@ impl Error {
     pub(crate) fn new(message: String) -> Error {
         Error { message }
     }
-
     pub fn into_string(self) -> String {
         self.into()
     }
+    pub(crate) fn none_error(name: &str) -> Error { Error { message: format! {"{} is none", name} } }
 }
 
 impl AsRef<str> for Error {
@@ -166,7 +166,7 @@ pub fn write_int<T: EndianScalar>(bytes: &mut [u8], value: T) {
 /// ```
 type MetaKeyArray = [u8; 10];
 
-#[derive(Clone,Debug,Eq)]
+#[derive(Clone, Debug)]
 pub struct MetaKey(MetaKeyArray);
 
 
@@ -208,7 +208,7 @@ impl MetaKey {
     }
 
     #[inline]
-    pub fn write(bytes: &mut [u8], value: &Option<MetaKey>) {
+    pub fn write(bytes: &mut [u8], value: &Option<&MetaKey>) {
         match value {
             None => unsafe {
                 bytes.as_mut_ptr().write_bytes(0u8, MetaKey::len_meta_key);
@@ -223,7 +223,7 @@ impl MetaKey {
         MetaKey([0; MetaKey::len_meta_key])
     }
 
-    pub fn new_add(&self) -> Self{
+    pub fn new_add(&self) -> Self {
         let mut n = MetaKey(self.0.clone());
         n.add_sep(1);
         n
