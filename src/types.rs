@@ -6,6 +6,17 @@ pub trait Bytes {
     fn as_ref(&self) -> &[u8];
 }
 
+impl Bytes for &[u8] {
+    fn as_ref(&self) -> &[u8] {
+        self
+    }
+}
+
+impl Bytes for Vec<u8> {
+    fn as_ref(&self) -> &[u8] {
+        &self
+    }
+}
 /// Enum for the LEFT | RIGHT args used by some commands
 pub enum Direction {
     Left,
@@ -157,6 +168,12 @@ pub fn write_int<T: EndianScalar>(bytes: &mut [u8], value: T) {
             core::mem::size_of::<T>(),
         );
     }
+}
+
+pub fn to_little_endian_array<T: EndianScalar>(value: T) -> Vec<u8> {
+    let mut temp = Vec::<u8>::with_capacity(mem::size_of::<T>());
+    write_int(&mut temp, value);
+    temp
 }
 
 ///
