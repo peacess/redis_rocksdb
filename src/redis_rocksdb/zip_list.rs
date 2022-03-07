@@ -1,6 +1,6 @@
-use core::{mem, ptr};
+use core::ptr;
 
-use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
+use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
 
 use crate::{EndianScalar, Error, LenType, read_int, read_len_type, SIZE_LEN_TYPE, write_int};
@@ -19,8 +19,8 @@ pub(crate) struct ZipList(Vec<u8>);
 impl From<Vec<u8>> for ZipList {
     fn from(bytes: Vec<u8>) -> Self {
         let mut bytes = bytes;
-        if bytes.len() < ZipList::len_init {
-            bytes.resize(ZipList::len_init, 0);
+        if bytes.len() < ZipList::LEN_INIT {
+            bytes.resize(ZipList::LEN_INIT, 0);
         }
         ZipList(bytes)
     }
@@ -33,10 +33,10 @@ impl AsRef<[u8]> for ZipList {
 }
 
 impl ZipList {
-    const len_init: usize = 32;
-    const offset_value: usize = SIZE_LEN_TYPE;
+    const LEN_INIT: usize = 32;
+    const OFFSET_VALUE: usize = SIZE_LEN_TYPE;
     pub fn new() -> Self {
-        ZipList(Vec::from([0; ZipList::len_init]))
+        ZipList(Vec::from([0; ZipList::LEN_INIT]))
     }
 
     #[inline]
@@ -74,8 +74,59 @@ impl ZipList {
         write_int(self.0.as_mut_slice(), len)
     }
 
+    pub fn pop_left(&mut self) -> Vec<u8> {
+        let len = self.len() - 1;
+        self.set_len(len);
+
+        let offset = ZipList::OFFSET_VALUE;
+        let value_len = read_len_type(&self.0[offset..]) as usize;
+        let mut pop_value = Vec::with_capacity(value_len);
+        unsafe {
+            pop_value.set_len(value_len);
+            ptr::copy_nonoverlapping(
+                self.0[offset + SIZE_LEN_TYPE..].as_ptr(),
+                pop_value.as_mut_ptr(),
+                pop_value.len(),
+            );
+        }
+
+        let value_all_len = SIZE_LEN_TYPE + value_len;
+        unsafe {
+            let p = self.0[offset..].as_mut_ptr();
+            ptr::copy(p.offset(value_all_len as isize), p, value_all_len);
+        }
+        self.0.truncate(self.0.len() - value_all_len);
+
+        pop_value
+    }
+
     pub fn push_left(&mut self, value: &[u8]) {
         self.insert_left(0, value);
+    }
+
+    pub fn pop_right(&mut self) -> Vec<u8> {
+        let len = self.len() - 1;
+        self.set_len(len);
+
+        let mut offset = 0;
+        for _ in 0..len {
+            let value_len = read_len_type(&self.0[offset..]) as usize;
+            offset += value_len + SIZE_LEN_TYPE;
+        }
+
+        let value_len = read_len_type(&self.0[offset..]) as usize;
+        let mut pop_value = Vec::with_capacity(value_len);
+        unsafe {
+            pop_value.set_len(value_len);
+            ptr::copy_nonoverlapping(
+                self.0[offset..].as_ptr(),
+                pop_value.as_mut_ptr(),
+                pop_value.len(),
+            );
+        }
+
+        self.0.truncate(offset);
+        pop_value
     }
 
     pub fn push_right(&mut self, value: &[u8]) {
@@ -160,8 +211,8 @@ impl ZipList {
         if index >= self.len() as i32 {
             return None;
         }
-        let mut offset = ZipList::offset_value;
-        for i in 0..index {
+        let mut offset = ZipList::OFFSET_VALUE;
+        for _ in 0..index {
             let size_value = read_len_type(&self.0[offset..]);
             offset += SIZE_LEN_TYPE + size_value as usize;
         }

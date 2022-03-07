@@ -14,7 +14,7 @@ pub trait RedisList {
 
     fn lmove<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error>;
     fn lmpop<K: Bytes>(&mut self, numkeys: i32, key: K, dir: Direction, count: i32);
-    fn lpop<K: Bytes, V: Bytes>(&mut self, key: K) -> Result<V, Error>;
+    fn lpop<K: Bytes>(&mut self, key: K) -> Result<Vec<u8>, Error>;
     /// 返回len of list
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 
@@ -31,12 +31,12 @@ pub trait RedisList {
     fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, Error>;
 
     fn lset<K: Bytes, V: Bytes>(&mut self, key: K, index: i32, value: V);
-    /// 移除列表的最后一个元素，返回值为移除的元素
-    fn rpop<K: Bytes>(&mut self, key: K, count: Option<i32>);
+    /// 移除列表的最后一个元素
+    fn rpop<K: Bytes>(&mut self, key: K) -> Result<Vec<u8>, Error>;
     /// 移除列表的最后一个元素，并将该元素添加到另一个列表并返回
     fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: K, dstkey: K) -> Result<V, Error>;
     /// 添加到列表尾部
-    fn rpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<(), Error>;
+    fn rpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
     /// 为已经存在的列表添加值， 添加到尾部
-    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<(), Error>;
+    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 }

@@ -17,6 +17,7 @@ impl Bytes for Vec<u8> {
         &self
     }
 }
+
 /// Enum for the LEFT | RIGHT args used by some commands
 pub enum Direction {
     Left,

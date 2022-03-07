@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use ckb_rocksdb::prelude::{Get, Put, TransactionBegin};
+use ckb_rocksdb::prelude::{Delete, Get, Put, TransactionBegin};
 use ckb_rocksdb::WriteOptions;
 
 use crate::{Bytes, Direction, Error, LenType, MetaKey, RedisList, RedisRocksdb};
@@ -76,8 +76,48 @@ impl RedisList for RedisRocksdb {
         todo!()
     }
 
-    fn lpop<K: Bytes, V: Bytes>(&mut self, key: K) -> Result<V, Error> {
-        todo!()
+    fn lpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, Error> {
+        let tr = self.db.transaction_default();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Err(Error::not_find("key of list")),
+            Some(q) => q
+        };
+        let node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+        let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
+        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let value = zip.pop_left();
+
+        if zip.len() == 0 {
+            //没有数据，删除quick list node
+            if quick.len_node() == 1 {
+                tr.delete(zip_key)?;
+                tr.delete(node_key)?;
+                quick.set_right(&None);
+                quick.set_left(&None);
+                quick.set_len_list(0);
+                quick.set_len_node(0);
+                tr.put(list_key.as_ref(), quick)?;
+            } else {
+                let left = node.right();
+                quick.set_right(&node.left());
+                quick.set_len_node(quick.len_node() - 1);
+                quick.set_len_list(quick.len_list() - 1);
+                tr.delete(zip_key)?;
+                tr.delete(node_key)?;
+                tr.put(list_key.as_ref(), quick)?;
+            }
+        } else {
+            node.set_len_list(zip.len());
+            node.set_len_bytes(zip.as_ref().len() as u32);
+            quick.set_len_list(quick.len_list() - 1);
+
+            tr.put(zip_key, zip)?;
+            tr.put(node_key, node.as_ref())?;
+        }
+
+        tr.commit()?;
+        Ok(value)
     }
 
     fn lpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
@@ -123,19 +163,78 @@ impl RedisList for RedisRocksdb {
         todo!()
     }
 
-    fn rpop<K: Bytes>(&mut self, key: K, count: Option<i32>) {
-        todo!()
+
+    fn rpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, Error> {
+        let tr = self.db.transaction_default();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Err(Error::not_find("key of list")),
+            Some(q) => q
+        };
+        let node_key = quick.right().ok_or(Error::none_error("right key"))?.clone();
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+        let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
+        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let value = zip.pop_right();
+
+        if zip.len() == 0 {
+            //没有数据，删除quick list node
+            if quick.len_node() == 1 {
+                tr.delete(zip_key)?;
+                tr.delete(node_key)?;
+                quick.set_right(&None);
+                quick.set_left(&None);
+                quick.set_len_list(0);
+                quick.set_len_node(0);
+                tr.put(list_key.as_ref(), quick)?;
+            } else {
+                let left = node.left();
+                quick.set_right(&node.left());
+                quick.set_len_node(quick.len_node() - 1);
+                quick.set_len_list(quick.len_list() - 1);
+                tr.delete(zip_key)?;
+                tr.delete(node_key)?;
+                tr.put(list_key.as_ref(), quick)?;
+            }
+        } else {
+            node.set_len_list(zip.len());
+            node.set_len_bytes(zip.as_ref().len() as u32);
+            quick.set_len_list(quick.len_list() - 1);
+
+            tr.put(zip_key.as_ref(), zip)?;
+            tr.put(node_key.as_ref(), node.as_ref())?;
+        }
+
+        tr.commit()?;
+        Ok(value)
     }
 
     fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: K, dstkey: K) -> Result<V, Error> {
         todo!()
     }
 
-    fn rpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<(), Error> {
-        todo!()
+    fn rpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+        let tr = self.db.transaction_default();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => {
+                let mut q = QuickList::new();
+                q.init_meta_key(list_key.as_ref());
+                q
+            }
+            Some(q) => q
+        };
+        let re = quick.rpush(&tr, list_key.as_ref(), value.as_ref())?;
+        tr.commit()?;
+        Ok(re)
     }
 
-    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<(), Error> {
-        todo!()
+    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+        let tr = self.db.transaction_default();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Ok(-1),
+            Some(q) => q
+        };
+        let re = quick.rpush(&tr, list_key.as_ref(), value.as_ref())?;
+        tr.commit()?;
+        Ok(re)
     }
 }

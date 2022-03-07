@@ -1,9 +1,11 @@
 use std::{fs, path};
+
 use ckb_rocksdb::prelude::Open;
+
 use redis_rocksdb::{RedisList, RedisRocksdb, to_little_endian_array};
 
 #[test]
-fn test_list_index() -> Result<(), anyhow::Error>{
+fn test_list_index() -> Result<(), anyhow::Error> {
     let db_path = path::Path::new("temp/test_list_index.db");
     if !db_path.exists() {
         fs::create_dir_all(db_path)?;
@@ -17,4 +19,9 @@ fn test_list_index() -> Result<(), anyhow::Error>{
     let len = redis_db.llen(key)?;
     assert_eq!(len, 1);
     Ok(())
+}
+
+#[test]
+fn test_() {
+    println!("debug ");
 }

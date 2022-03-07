@@ -7,7 +7,7 @@ exclude = [".gitignore"]
 description = "rust implement structure kv(key/value) embedded database, storage by rocksdb"
 repository = "https://github.com/selfopen/redis_rocksdb"
 homepage = "https://github.com/selfopen/redis_rocksdb"
-keywords = ["redis", "rocksdb", "nosql", "kv"]
+keywords = ["redis", "rocksdb", "nosql", "kv", "embedded"]
 categories = ["database"]
 license = "Apache-2.0"
 
