@@ -278,6 +278,77 @@ impl ZipList {
         }
     }
 
+    pub fn rem(&mut self, count: i32, value: &[u8]) -> LenType {
+        let mut done:LenType = 0;
+        if count > 0{
+            let count = count as usize;
+            let mut offset = ZipList::OFFSET_VALUE;
+            let old_len = self.len();
+            for _ in 0.. old_len {
+                let value_bytes = read_len_type(&self.0[offset..]);
+                let temp = &self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_bytes];
+                if temp.eq(value) {
+                    self.rem_one(offset,value_bytes);
+                    done += 1;
+                    if done as usize == count {
+                        return done;
+                    }
+                    // 删除以后，后面的数据copy在当前offset，所以offset不用改
+                }else{
+                    offset += SIZE_LEN_TYPE + value_bytes;
+                }
+            }
+        }else if count < 0 {
+            let mut will_remove = Vec::new();
+            let mut offset = ZipList::OFFSET_VALUE;
+            let old_len = self.len();
+            for _ in 0.. old_len {
+                let value_bytes = read_len_type(&self.0[offset..]);
+                let temp = &self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_bytes];
+                if temp.eq(value) {
+                    will_remove.push(offset);
+                    // 删除以后，后面的数据copy在当前offset，所以offset不用改
+                }else{
+                    offset += SIZE_LEN_TYPE + value_bytes;
+                }
+            }
+
+            let count = count.abs() as usize;
+            for offset in will_remove.into_iter().rev() {
+                let value_bytes = read_len_type(&self.0[offset..]);
+                self.rem_one(offset,value_bytes);
+                done += 1;
+                if done as usize == count {
+                    return done;
+                }
+            }
+
+        }else{
+            let mut offset = ZipList::OFFSET_VALUE;
+            let old_len = self.len();
+            for _ in 0.. old_len {
+                let value_bytes = read_len_type(&self.0[offset..]);
+                let temp = &self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_bytes];
+                if temp.eq(value) {
+                    self.rem_one(offset,value_bytes);
+                    done += 1;
+                    // 删除以后，后面的数据copy在当前offset，所以offset不用改
+                }else{
+                    offset += SIZE_LEN_TYPE + value_bytes;
+                }
+            }
+        }
+
+        done
+    }
+
+    pub fn rem_one(&mut self, offet: usize, value_len: LenType) {
+        let mut p = self.0[offet..].as_mut_ptr();
+        let t = offet + value_len + SIZE_LEN_TYPE;
+        unsafe { ptr::copy(p.offset(t as isize), p, self.0.len() - t); }
+        self.0.truncate(self.0.len() - value_len - SIZE_LEN_TYPE);
+    }
+
     pub fn index(&self, index: i32) -> Option<&[u8]> {
         if index >= self.len() as i32 {
             return None;
@@ -289,5 +360,67 @@ impl ZipList {
         }
         let size_value = read_len_type(&self.0[offset..]);
         Some(&self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + size_value as usize])
+    }
+
+    pub fn range(&self, start: i32, stop: i32) -> Vec<Vec<u8>>{
+        let len = stop - start + 1;
+        let mut result = Vec::with_capacity(len as usize);
+        let mut offset = ZipList::OFFSET_VALUE;
+        let mut index = 0;
+        for i in 0..self.len() as i32 {
+            if index == start {
+                break
+            }
+            let value_bytes = read_len_type(&self.0[offset..]) as usize;
+            index += 1;
+            offset += value_bytes as usize + SIZE_LEN_TYPE;
+        }
+        if index == start {
+            for i in 0..len + 1 {
+                let value_bytes = read_len_type(&self.0[offset..]) as usize;
+                let value = (self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_bytes]).to_vec();
+                result.push(value);
+                offset += SIZE_LEN_TYPE + value_bytes;
+            }
+        }
+
+        result
+    }
+
+    pub fn count_index(len: i32, index: i32) -> i32 {
+        let result_index = {
+            if index < 0 {
+                let mut index_ = len + index;
+                if index_ < 0 {
+                    index_ = 0;
+                }
+                index_
+            } else {
+                if index >= len {
+                    len - 1
+                } else {
+                    index
+                }
+            }
+        };
+        result_index
+    }
+
+    /// 返回值 (start_in_index, stop_in_index)
+    pub fn count_in_index(len: LenType, offset: usize, start_index: usize, stop_index: usize) -> Option<(usize, usize)> {
+        let len = len as usize;
+        let mut start_in_index = 0usize;
+        let mut stop_in_index = 0usize;
+
+        if start_index >= len + offset || stop_index <= offset {
+            return None
+        }
+
+        start_in_index = start_index - offset;
+        stop_in_index = start_in_index + (stop_index - start_index) + 1;
+        if stop_in_index >= len {
+            stop_in_index = len -1;
+        }
+        Some((start_in_index, stop_in_index))
     }
 }

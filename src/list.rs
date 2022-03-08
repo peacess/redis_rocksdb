@@ -1,4 +1,4 @@
-use crate::{Bytes, Direction};
+use crate::{Bytes, Direction, LenType};
 use crate::Error;
 
 pub trait RedisList {
@@ -25,13 +25,18 @@ pub trait RedisList {
 
     /// 返回len of list，如果list不存在返回值为 0
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
-
-    fn lrange<K: Bytes, V: Bytes>(&self, key: K, start: i32, stop: i32) -> Result<Vec<V>, Error>;
+    /// 返回在range范围内的元素，所以start与stop可能会在list的下标之外。range是包含stop的
+    /// 如果一个都没有找到，返回为len为0的Vec
+    /// 0表示第一个元素
+    /// -1表示倒数第一个元素
+    /// -100 100表示从到数100个元素到第101个元素。如果这时list中只有3个元素，返回所有的值，因为这3个都在 range的范围之内
+    fn lrange<K: Bytes>(&self, key: K, start: i32, stop: i32) -> Result<Vec<Vec<u8>>, Error>;
+    /// 返回值为删除的数量
     /// COUNT 的值可以是以下几种：
     /// count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT。
     /// count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
     /// count = 0 : 移除表中所有与 VALUE 相等的值
-    fn lrem<K: Bytes, V: Bytes>(&mut self, key: K, count: i32, value: V) -> Result<V, Error>;
+    fn lrem<K: Bytes, V: Bytes>(&mut self, key: K, count: i32, value: V) -> Result<LenType, Error>;
     /// 保留指定区间内的元素，不在指定区间之内的元素都将被删除, 反回删除的元素数量
     fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, Error>;
 

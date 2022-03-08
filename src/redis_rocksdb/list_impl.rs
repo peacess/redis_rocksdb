@@ -54,7 +54,7 @@ impl RedisList for RedisRocksdb {
             }
         };
         let tr = self.db.transaction_default();
-        let result = quick.list_insert(&tr,key.as_ref(),pivot.as_ref(),value.as_ref(),ZipList::insert_value_left)?;
+        let result = quick.list_insert(&tr, key.as_ref(), pivot.as_ref(), value.as_ref(), ZipList::insert_value_left)?;
         tr.commit()?;
         Ok(result)
     }
@@ -68,7 +68,7 @@ impl RedisList for RedisRocksdb {
         };
 
         let tr = self.db.transaction_default();
-        let result = quick.list_insert(&tr,key.as_ref(),pivot.as_ref(),value.as_ref(),ZipList::insert_value_right)?;
+        let result = quick.list_insert(&tr, key.as_ref(), pivot.as_ref(), value.as_ref(), ZipList::insert_value_right)?;
         tr.commit()?;
         Ok(result)
     }
@@ -142,23 +142,165 @@ impl RedisList for RedisRocksdb {
     }
 
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
-        let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(0),
             Some(q) => q
         };
+        let tr = self.db.transaction_default();
         let re = quick.lpush(&tr, list_key.as_ref(), value.as_ref())?;
         tr.commit()?;
         Ok(re)
     }
 
 
-    fn lrange<K: Bytes, V: Bytes>(&self, key: K, start: i32, stop: i32) -> Result<Vec<V>, Error> {
-        todo!()
+    fn lrange<K: Bytes>(&self, list_key: K, start: i32, stop: i32) -> Result<Vec<Vec<u8>>, Error> {
+        let mut result = Vec::new();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Ok(result),
+            Some(q) => q
+        };
+        if quick.len_list() < 1 {
+            return Ok(result);
+        }
+
+        let start_index = ZipList::count_index(quick.len_list() as i32, start) as usize;
+        let stop_index = ZipList::count_index(quick.len_list() as i32, stop) as usize;
+        if start_index > stop_index {
+            return Ok(result)
+        }
+
+        //todo read only
+        let tr = self.db.transaction_default();
+
+        let mut node_key = quick.left().ok_or(Error::none_error("left key"))?;
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("quick list node"))?;
+        let mut offset = 0usize;
+        loop {
+
+            let len_zip = node.len_list();
+            if start_index < len_zip as usize + offset {
+                let temp = ZipList::count_in_index(len_zip, offset, start_index, stop_index);
+                if let Some((start_in, stop_in)) = temp {
+                    let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
+                    let zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip"))?;
+                    let one = zip.range(start_in as i32, stop_in as i32);
+                    result.extend(one);
+                }//else 是没有数据
+            }
+
+            if stop_index < len_zip as usize + offset{
+                //取了所有数据
+                break
+            }
+
+            if let Some(t) = node.right() {
+                node = QuickListNode::get(&tr, t.as_ref())?.ok_or(Error::none_error("quick list node"))?;
+            }else{
+                // 没有更多的节点
+                break;
+            }
+        }
+
+        tr.commit()?;
+        Ok(result)
     }
 
-    fn lrem<K: Bytes, V: Bytes>(&mut self, key: K, count: i32, value: V) -> Result<V, Error> {
-        todo!()
+    fn lrem<K: Bytes, V: Bytes>(&mut self, list_key: K, count: i32, value: V) -> Result<LenType, Error> {
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Ok(0),
+            Some(q) => q
+        };
+
+        let mut rem_count = 0u32;
+
+        let tr = self.db.transaction_default();
+
+        if count > 0 { //正向遍历
+            let count = count as usize;
+            let mut node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
+            let mut node = QuickListNode::get(&tr,node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+
+            loop {
+                let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
+                let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip"))?;
+
+                let done = zip.rem((count - rem_count as usize) as i32, value.as_ref());
+                rem_count += done;
+
+                if done != 0 {
+                    if zip.len() == 0 {
+                        //删除当前node
+                        tr.delete(zip_key)?;
+
+                        let left = node.left();
+                        let right = node.right();
+
+                        match (left,right) {
+                            (None,None) => {
+                                //都没有数据，删除整个 list
+                                tr.delete(&node_key)?;
+                                tr.delete(&list_key)?;
+                            },
+                            (Some(left_key), None) => {
+                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+                                left_node.set_right(&None);
+                                tr.delete(node_key)?;
+                                tr.put(&list_key, &left_node)?;
+                            },
+                            (Some(left_key), Some(right_key)) => {
+                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                                left_node.set_right(&Some(right_key));
+                                right_node.set_right(&Some(left_key));
+                                tr.delete(node_key)?;
+                                tr.put(left_key, &left_node)?;
+                                tr.put(right_key, &right_node)?;
+                            },
+                            (None, Some(right_key)) => {
+                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                                right_node.set_left(&None);
+                                //todo quick 的right是否要处理
+                                quick.set_left(&Some(right_key));
+                            },
+                        }
+
+
+                    } else {
+                        node.set_len_list(zip.len());
+                        node.set_len_bytes(zip.as_ref().len() as LenType);
+
+                        tr.put(zip_key, &zip)?;
+                        tr.put(&node_key, &node)?;
+                    }
+                }
+
+                if rem_count == count as u32 {
+                    break
+                }
+                if let Some(t) = node.right() {
+                    node_key = t.clone();
+                }else{
+                    break
+                }
+                node = QuickListNode::get(&tr,node_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+            }
+        }else if count < 0 { //反向遍历
+            let count = count.abs() as usize;
+
+
+        }else{ //正向删除所有相等的值
+
+        }
+
+
+        if rem_count > 0 {
+            quick.set_len_list(quick.len_list() - rem_count);
+            tr.put(list_key, quick)?;
+        }
+
+        tr.commit()?;
+        Ok(rem_count)
+
     }
 
     fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, Error> {
