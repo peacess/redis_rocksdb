@@ -1,6 +1,7 @@
-use core::{mem, ptr};
-use std::{convert, error, fmt};
+use core::{mem};
+use std::{error, fmt};
 use std::array::TryFromSliceError;
+use std::fmt::{Display, Formatter};
 
 pub trait Bytes {
     fn as_ref(&self) -> &[u8];
@@ -189,19 +190,6 @@ type MetaKeyArray = [u8; 10];
 #[derive(Clone, Debug)]
 pub struct MetaKey(MetaKeyArray);
 
-
-impl From<MetaKeyArray> for MetaKey {
-    fn from(key: MetaKeyArray) -> Self {
-        MetaKey(key)
-    }
-}
-
-impl AsRef<[u8]> for MetaKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 impl MetaKey {
     const len_seq: usize = mem::size_of::<u16>();
     const len_meta_key: usize = mem::size_of::<MetaKey>();
@@ -268,6 +256,25 @@ impl MetaKey {
 
     pub fn set_sep(&mut self, sep: u16) {
         write_int(&mut self.0[MetaKey::len_key..], sep)
+    }
+}
+
+
+impl From<MetaKeyArray> for MetaKey {
+    fn from(key: MetaKeyArray) -> Self {
+        MetaKey(key)
+    }
+}
+
+impl AsRef<[u8]> for MetaKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Display for MetaKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.key(), self.sep())
     }
 }
 

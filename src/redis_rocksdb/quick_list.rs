@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Put;
 
-use crate::{Error, LenType, MetaKey, read_int, read_len_type, SIZE_LEN_TYPE, write_len_type};
+use crate::{Error, LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
 use crate::redis_rocksdb::quick_list_node::QuickListNode;
 use crate::redis_rocksdb::zip_list::ZipList;
 
@@ -27,9 +27,9 @@ struct _QuickList {
 pub struct QuickList([u8; mem::size_of::<_QuickList>()]);
 
 impl QuickList {
-    const offset_meta_key: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
-    const offset_left: usize = QuickList::offset_meta_key + mem::size_of::<MetaKey>();
-    const offset_right: usize = QuickList::offset_left + mem::size_of::<MetaKey>();
+    const OFFSET_META_KEY: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
+    const OFFSET_LEFT: usize = QuickList::OFFSET_META_KEY + mem::size_of::<MetaKey>();
+    const OFFSET_RIGHT: usize = QuickList::OFFSET_LEFT + mem::size_of::<MetaKey>();
 
     pub fn new() -> Self {
         QuickList([0; mem::size_of::<_QuickList>()])
@@ -214,8 +214,43 @@ impl QuickList {
         Ok(quick.len_list() as i32)
     }
 
+    pub(crate) fn list_insert(&mut self, tr: &Transaction<TransactionDB>, list_key: &[u8], pivot: &[u8], value: &[u8],
+                              f: fn(&mut ZipList,&[u8],&[u8]) -> Option<i32>) -> Result<i32, Error>{
+        let mut quick = self;
+        let mut node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+
+        let (zip,zip_key) = loop {
+            let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
+            let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+            let t = f(&mut zip,pivot.as_ref(), value.as_ref());
+            if t.is_some() {
+                break (Some(zip), zip_key.clone());
+            }
+            match node.right() {
+                None => break (None, zip_key.clone()),//双向链表完成
+                Some(t) => {
+                    node_key = t.clone();
+                    node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                }
+            }
+        };
+        let mut result = -1;
+        if let Some(zip) = zip {
+            node.set_len_list(zip.len());
+            node.set_len_bytes(zip.as_ref().len() as LenType);
+            quick.set_len_list(quick.len_list() + 1);
+            result = quick.len_list() as i32;
+
+            tr.put(zip_key, zip.as_ref())?;
+            tr.put(node_key.as_ref(), node.as_ref())?;
+            tr.put(list_key.as_ref(), quick.as_ref())?;
+        }
+        Ok(result)
+    }
+
     pub(crate) fn next_meta_key(&mut self) -> Option<MetaKey> {
-        match MetaKey::read_mut(&self.0[QuickList::offset_meta_key..]) {
+        match MetaKey::read_mut(&self.0[QuickList::OFFSET_META_KEY..]) {
             None => None,
             Some(k) => {
                 k.add_sep(1);
@@ -245,12 +280,12 @@ impl QuickList {
 
     #[inline]
     pub fn meta_key(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickList::offset_meta_key..])
+        MetaKey::read(&self.0[QuickList::OFFSET_META_KEY..])
     }
 
     #[inline]
     pub fn set_meta_key(&mut self, meta_key: &Option<&MetaKey>) {
-        MetaKey::write(&mut self.0[QuickList::offset_meta_key..], meta_key)
+        MetaKey::write(&mut self.0[QuickList::OFFSET_META_KEY..], meta_key)
     }
 
     #[inline]
@@ -264,24 +299,24 @@ impl QuickList {
             meta_key
         };
 
-        MetaKey::write(&mut self.0[QuickList::offset_meta_key..], &Some(&meta_key));
+        MetaKey::write(&mut self.0[QuickList::OFFSET_META_KEY..], &Some(&meta_key));
         meta_key
     }
 
     pub fn left(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickList::offset_left..])
+        MetaKey::read(&self.0[QuickList::OFFSET_LEFT..])
     }
 
     pub fn set_left(&mut self, meta_key: &Option<&MetaKey>) {
-        MetaKey::write(&mut self.0[QuickList::offset_left..], meta_key)
+        MetaKey::write(&mut self.0[QuickList::OFFSET_LEFT..], meta_key)
     }
 
     pub fn right(&self) -> Option<&MetaKey> {
-        MetaKey::read(&self.0[QuickList::offset_right..])
+        MetaKey::read(&self.0[QuickList::OFFSET_RIGHT..])
     }
 
     pub fn set_right(&mut self, meta_key: &Option<&MetaKey>) {
-        MetaKey::write(&mut self.0[QuickList::offset_right..], meta_key)
+        MetaKey::write(&mut self.0[QuickList::OFFSET_RIGHT..], meta_key)
     }
 }
 

@@ -23,5 +23,12 @@ fn test_list_index() -> Result<(), anyhow::Error> {
 
 #[test]
 fn test_() {
+    fn foo(a: i32, f: fn(i32) -> i32) -> i32 {
+        f(a)
+    }
+
+    fn foo2<F: Fn(i32) -> i32>(a: i32, f: F ) -> i32 {
+        f(a)
+    }
     println!("debug ");
 }

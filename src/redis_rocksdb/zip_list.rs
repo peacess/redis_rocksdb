@@ -175,6 +175,77 @@ impl ZipList {
         self.insert_left(index + 1, value)
     }
 
+    /// 没有找到pivot 返回None
+    /// 找到并成功插入，返回插入后的 offset
+    pub fn insert_value_left(&mut self, pivot: &[u8], value: &[u8]) -> Option<i32> {
+        let old_bytes_len = self.0.len();
+        let mut offset = 0;
+        //因为要表示没有找到，所以使用 i32类型
+        let mut find_len = -1;
+        for _ in 0..old_bytes_len {
+            let value_len = read_len_type(&self.0[offset..]) as usize;
+            let value_now = &self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_len];
+            if value_now.eq(pivot) {
+                find_len = value_len as i32;
+                break;
+            }
+            offset += value_len + SIZE_LEN_TYPE;
+        }
+
+        // 找到数据
+        if find_len != -1 {
+            unsafe {
+                let add_len = SIZE_LEN_TYPE + value.len();
+                self.0.reserve(add_len);
+                self.0.set_len(self.0.len() + add_len);
+
+                let p = self.0.as_mut_ptr().offset(offset as isize);
+                ptr::copy(p, p.offset(add_len as isize), old_bytes_len - offset);
+            }
+            unsafe { ZipList::write_value(value, self.0.as_mut_ptr().offset(offset as isize)) }
+            self.set_len(self.len() + 1);
+            return Some(offset as i32)
+        }else{
+            None
+        }
+    }
+
+    /// 没有找到pivot 返回None
+    /// 找到并成功插入，返回插入后的 offset
+    pub fn insert_value_right(&mut self, pivot: &[u8], value: &[u8])-> Option<i32> {
+        let old_bytes_len = self.0.len();
+        let mut offset = 0;
+        //因为要表示没有找到，所以使用 i32类型
+        let mut find_len = -1;
+        for _ in 0..old_bytes_len {
+            let value_len = read_len_type(&self.0[offset..]) as usize;
+            let value_now = &self.0[offset + SIZE_LEN_TYPE..offset + SIZE_LEN_TYPE + value_len];
+            if value_now.eq(pivot) {
+                find_len = value_len as i32;
+                break;
+            }
+            offset += value_len + SIZE_LEN_TYPE;
+        }
+
+        // 找到数据
+        if find_len != -1 {
+            let add_len = SIZE_LEN_TYPE + value.len();
+            offset += add_len;
+            unsafe {
+                self.0.reserve(add_len);
+                self.0.set_len(self.0.len() + add_len);
+
+                let p = self.0.as_mut_ptr().offset(offset as isize);
+                ptr::copy(p, p.offset(add_len as isize), old_bytes_len - offset);
+            }
+            unsafe { ZipList::write_value(value, self.0.as_mut_ptr().offset(offset as isize)) }
+            self.set_len(self.len() + 1);
+            return Some(offset as i32)
+        }else{
+            None
+        }
+    }
+
     pub fn set(&mut self, index: i32, value: &[u8]) {
         // todo if the index > value_len
         unsafe {

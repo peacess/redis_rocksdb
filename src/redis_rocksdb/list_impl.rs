@@ -1,10 +1,6 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use ckb_rocksdb::prelude::{Delete, Put, TransactionBegin};
 
-use ckb_rocksdb::prelude::{Delete, Get, Put, TransactionBegin};
-use ckb_rocksdb::WriteOptions;
-
-use crate::{Bytes, Direction, Error, LenType, MetaKey, RedisList, RedisRocksdb};
+use crate::{Bytes, Direction, Error, LenType, RedisList, RedisRocksdb};
 use crate::redis_rocksdb::quick_list::QuickList;
 use crate::redis_rocksdb::quick_list_node::QuickListNode;
 use crate::redis_rocksdb::zip_list::ZipList;
@@ -50,13 +46,31 @@ impl RedisList for RedisRocksdb {
         tr.commit()?;
         Ok(v.to_vec())
     }
-
-    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error> {
-        todo!()
+    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error> {
+        let mut quick = {
+            match QuickList::get(&self.db, key.as_ref())? {
+                None => return Ok(0),
+                Some(q) => q
+            }
+        };
+        let tr = self.db.transaction_default();
+        let result = quick.list_insert(&tr,key.as_ref(),pivot.as_ref(),value.as_ref(),ZipList::insert_value_left)?;
+        tr.commit()?;
+        Ok(result)
     }
 
-    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error> {
-        todo!()
+    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error> {
+        let mut quick = {
+            match QuickList::get(&self.db, key.as_ref())? {
+                None => return Ok(0),
+                Some(q) => q
+            }
+        };
+
+        let tr = self.db.transaction_default();
+        let result = quick.list_insert(&tr,key.as_ref(),pivot.as_ref(),value.as_ref(),ZipList::insert_value_right)?;
+        tr.commit()?;
+        Ok(result)
     }
 
     fn llen<K: Bytes>(&self, key: K) -> Result<i32, Error> {
@@ -66,14 +80,6 @@ impl RedisList for RedisRocksdb {
                 Ok(quick.len_list() as i32)
             }
         }
-    }
-
-    fn lmove<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error> {
-        todo!()
-    }
-
-    fn lmpop<K: Bytes>(&mut self, numkeys: i32, key: K, dir: Direction, count: i32) {
-        todo!()
     }
 
     fn lpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, Error> {
@@ -138,7 +144,7 @@ impl RedisList for RedisRocksdb {
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
-            None => return Ok(-1),
+            None => return Ok(0),
             Some(q) => q
         };
         let re = quick.lpush(&tr, list_key.as_ref(), value.as_ref())?;
@@ -230,7 +236,7 @@ impl RedisList for RedisRocksdb {
     fn rpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
-            None => return Ok(-1),
+            None => return Ok(0),
             Some(q) => q
         };
         let re = quick.rpush(&tr, list_key.as_ref(), value.as_ref())?;

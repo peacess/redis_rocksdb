@@ -6,19 +6,24 @@ pub trait RedisList {
     fn brpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, Error>;
     fn brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, timeout: i64) -> Result<V, Error>;
     fn lindex<K: Bytes>(&self, key: K, index: i32) -> Result<Vec<u8>, Error>;
-    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
-    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<(), Error>;
+
+    /// 如果命令执行成功，返回插入操作完成之后，列表的长度。
+    /// 如果没有找到指定元素 ，返回 -1 。
+    /// 如果 key 不存在或为空列表，返回 0
+    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error>;
+    /// 如果命令执行成功，返回插入操作完成之后，列表的长度。
+    /// 如果没有找到指定元素 ，返回 -1 。
+    /// 如果 key 不存在或为空列表，返回 0
+    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error>;
 
     // 返回值为-1表示还没有这个list
     fn llen<K: Bytes>(&self, key: K) -> Result<i32, Error>;
 
-    fn lmove<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, src_dir: Direction, dst_dir: Direction) -> Result<V, Error>;
-    fn lmpop<K: Bytes>(&mut self, numkeys: i32, key: K, dir: Direction, count: i32);
     fn lpop<K: Bytes>(&mut self, key: K) -> Result<Vec<u8>, Error>;
     /// 返回len of list
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 
-    /// 返回len of list，如果list不存在返回值为 -1
+    /// 返回len of list，如果list不存在返回值为 0
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, Error>;
 
     fn lrange<K: Bytes, V: Bytes>(&self, key: K, start: i32, stop: i32) -> Result<Vec<V>, Error>;
