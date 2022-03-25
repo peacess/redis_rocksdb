@@ -3,20 +3,7 @@ use std::{error, fmt};
 use std::array::TryFromSliceError;
 use std::fmt::{Display, Formatter};
 
-pub trait Bytes {
-    fn as_ref(&self) -> &[u8];
-}
-
-impl Bytes for &[u8] {
-    fn as_ref(&self) -> &[u8] {
-        self
-    }
-}
-
-impl Bytes for Vec<u8> {
-    fn as_ref(&self) -> &[u8] {
-        &self
-    }
+pub trait Bytes : AsRef<[u8]> {
 }
 
 /// Enum for the LEFT | RIGHT args used by some commands

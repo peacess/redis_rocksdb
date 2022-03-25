@@ -221,7 +221,7 @@ impl RedisList for RedisRocksdb {
             let mut node = QuickListNode::get(&tr,node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
 
             loop {
-                let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
+                let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
                 let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip"))?;
 
                 let done = zip.rem((count - rem_count as usize) as i32, value.as_ref());
