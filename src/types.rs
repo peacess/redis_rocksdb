@@ -79,7 +79,7 @@ impl fmt::Display for Error {
 
 pub type LenType = u32;
 
-pub const SIZE_LEN_TYPE: usize = mem::size_of::<LenType>();
+pub const BYTES_LEN_TYPE: usize = mem::size_of::<LenType>();
 
 #[inline]
 pub fn read_len_type(bytes: &[u8]) -> LenType {

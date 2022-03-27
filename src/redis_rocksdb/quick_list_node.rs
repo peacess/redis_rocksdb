@@ -3,7 +3,7 @@ use core::mem;
 use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
 
-use crate::{Error, LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
+use crate::{Error, LenType, MetaKey, read_len_type, BYTES_LEN_TYPE, write_len_type};
 
 ///
 /// ```rust
@@ -32,7 +32,7 @@ impl QuickListNode {
     pub const MAX_LEN: LenType = 124;
     pub const MAX_BYTES: LenType = QuickListNode::MAX_LEN * 4;
 
-    const OFFSET_LEFT: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
+    const OFFSET_LEFT: usize = BYTES_LEN_TYPE + BYTES_LEN_TYPE;
     const OFFSET_RIGHT: usize = QuickListNode::OFFSET_LEFT + mem::size_of::<MetaKey>();
     const OFFSET_VALUES_KEY: usize = QuickListNode::OFFSET_RIGHT + mem::size_of::<MetaKey>();
     pub fn new() -> Self {
@@ -65,11 +65,11 @@ impl QuickListNode {
 
     //在 ziplist的bytes
     pub fn len_bytes(&self) -> LenType {
-        read_len_type(&self.0[SIZE_LEN_TYPE..])
+        read_len_type(&self.0[BYTES_LEN_TYPE..])
     }
 
     pub fn set_len_bytes(&mut self, len: LenType) {
-        write_len_type(&mut self.0[SIZE_LEN_TYPE..], len)
+        write_len_type(&mut self.0[BYTES_LEN_TYPE..], len)
     }
 
     pub fn left(&self) -> Option<&MetaKey> {

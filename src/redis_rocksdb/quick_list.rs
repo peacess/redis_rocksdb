@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Put;
 
-use crate::{Error, LenType, MetaKey, read_len_type, SIZE_LEN_TYPE, write_len_type};
+use crate::{Error, LenType, MetaKey, read_len_type, BYTES_LEN_TYPE, write_len_type};
 use crate::redis_rocksdb::quick_list_node::QuickListNode;
 use crate::redis_rocksdb::zip_list::ZipList;
 
@@ -27,7 +27,7 @@ struct _QuickList {
 pub struct QuickList([u8; mem::size_of::<_QuickList>()]);
 
 impl QuickList {
-    const OFFSET_META_KEY: usize = SIZE_LEN_TYPE + SIZE_LEN_TYPE;
+    const OFFSET_META_KEY: usize = BYTES_LEN_TYPE + BYTES_LEN_TYPE;
     const OFFSET_LEFT: usize = QuickList::OFFSET_META_KEY + mem::size_of::<MetaKey>();
     const OFFSET_RIGHT: usize = QuickList::OFFSET_LEFT + mem::size_of::<MetaKey>();
 
@@ -270,11 +270,11 @@ impl QuickList {
 
     //node的个数
     pub fn len_list(&self) -> LenType {
-        read_len_type(&self.0[SIZE_LEN_TYPE..])
+        read_len_type(&self.0[BYTES_LEN_TYPE..])
     }
 
     pub fn set_len_list(&mut self, len: LenType) {
-        write_len_type(&mut self.0[SIZE_LEN_TYPE..], len)
+        write_len_type(&mut self.0[BYTES_LEN_TYPE..], len)
     }
 
 
