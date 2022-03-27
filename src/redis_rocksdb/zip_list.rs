@@ -28,63 +28,63 @@ use crate::{BYTES_LEN_TYPE, EndianScalar, Error, LenType, read_int, read_len_typ
 ///
 /// ```
 
-struct ZipListNode<'a>(&'a [u8],usize,usize);
+struct ZipListNode<'a>(&'a [u8], usize, usize);
 
-type LenNode = u16;
+type SizeNodeType = u16;
 
 impl<'a> ZipListNode<'a> {
-    const LEN_NODE: usize = core::mem::size_of::<LenNode>();
-    const OFFSET_VALUE: usize = ZipListNode::LEN_NODE;
+    const SIZE_NODE_TYPE: usize = core::mem::size_of::<SizeNodeType>();
+    const OFFSET_VALUE: usize = ZipListNode::SIZE_NODE_TYPE;
 
     fn from_start(bytes: &'a [u8]) -> Option<Self> {
-        let len_node = ZipListNode::read_bytes_of_value(bytes) + ZipListNode::LEN_NODE * 2;
-        if len_node > bytes.len() {
+        let bytes_node = ZipListNode::read_bytes_of_value(bytes) + ZipListNode::SIZE_NODE_TYPE * 2;
+        if bytes_node > bytes.len() {
             None
         } else {
-            Some(Self(bytes,0, len_node))
+            Some(Self(bytes, 0, bytes_node))
         }
     }
 
     fn from_end(bytes: &'a [u8]) -> Option<Self> {
-        let len_node = ZipListNode::read_bytes_of_value(&bytes[bytes.len() - ZipListNode::LEN_NODE..]) + ZipListNode::LEN_NODE * 2;
-        if len_node > bytes.len() {
+        let bytes_node = ZipListNode::read_bytes_of_value(&bytes[bytes.len() - ZipListNode::SIZE_NODE_TYPE..]) + ZipListNode::SIZE_NODE_TYPE * 2;
+        if bytes_node > bytes.len() {
             None
         } else {
-            Some(Self(bytes, bytes.len() - len_node, len_node))
+            Some(Self(bytes, bytes.len() - bytes_node, bytes_node))
         }
     }
 
-    fn read_value(bytes: &'a [u8], offset: usize) -> &'a [u8]{
-        let offset_value = offset + ZipListNode::read_bytes_of_value(&bytes[offset as usize..]) + ZipListNode::LEN_NODE ;
-        &bytes[offset + ZipListNode::LEN_NODE..offset_value]
+    fn read_value(bytes: &'a [u8], offset: usize) -> &'a [u8] {
+        let offset_value = offset + ZipListNode::read_bytes_of_value(&bytes[offset as usize..]) + ZipListNode::SIZE_NODE_TYPE;
+        &bytes[offset + ZipListNode::SIZE_NODE_TYPE..offset_value]
     }
 
     fn count_bytes(value: &[u8]) -> usize {
-        value.len() + ZipListNode::LEN_NODE * 2
+        value.len() + ZipListNode::SIZE_NODE_TYPE * 2
     }
 
     fn read_bytes_of_value(node: &[u8]) -> usize {
-        read_int::<LenNode>(node) as usize
+        read_int::<SizeNodeType>(node) as usize
     }
 
     #[inline]
     fn write_value(value: &[u8], p: *mut u8) {
-        let x_le = (value.len() as LenNode).to_little_endian();
+        let x_le = (value.len() as SizeNodeType).to_little_endian();
         unsafe {
             ptr::copy_nonoverlapping(
-                &x_le as *const LenNode as *const u8,
+                &x_le as *const _ as *const u8,
                 p,
-                ZipListNode::LEN_NODE,
+                ZipListNode::SIZE_NODE_TYPE,
             );
             ptr::copy_nonoverlapping(
                 value.as_ptr(),
-                p.offset(ZipListNode::LEN_NODE as isize),
+                p.offset(ZipListNode::SIZE_NODE_TYPE as isize),
                 value.len(),
             );
             ptr::copy_nonoverlapping(
-                &x_le as *const LenNode as *const u8,
-                p.offset(ZipListNode::LEN_NODE as isize + value.len() as isize),
-                ZipListNode::LEN_NODE,
+                &x_le as *const _ as *const u8,
+                p.offset(ZipListNode::SIZE_NODE_TYPE as isize + value.len() as isize),
+                ZipListNode::SIZE_NODE_TYPE,
             );
         }
     }
@@ -94,7 +94,7 @@ impl<'a> ZipListNode<'a> {
     }
 
     fn bytes_of_value(&self) -> usize {
-        self.2 - ZipListNode::LEN_NODE * 2
+        self.2 - ZipListNode::SIZE_NODE_TYPE * 2
     }
 
     fn offset(&self) -> usize {
@@ -102,13 +102,13 @@ impl<'a> ZipListNode<'a> {
     }
 
     fn value(&'a self) -> &'a [u8] {
-        &self.0[self.1..self.1 + self.2]
+        &self.0[self.1 + ZipListNode::SIZE_NODE_TYPE..self.1 + self.2 - ZipListNode::SIZE_NODE_TYPE]
     }
 }
 
 impl AsRef<[u8]> for ZipListNode<'_> {
     fn as_ref(&self) -> &[u8] {
-        self.0
+        &self.0[self.1..self.1 + self.2]
     }
 }
 
@@ -132,7 +132,7 @@ impl AsRef<[u8]> for ZipList {
 }
 
 impl ZipList {
-    const LEN_INIT: usize = 32;
+    const LEN_INIT: usize = core::mem::size_of::<LenType>();
     const OFFSET_VALUE: usize = BYTES_LEN_TYPE;
     pub fn new() -> Self {
         ZipList(Vec::from([0; ZipList::LEN_INIT]))
@@ -158,11 +158,13 @@ impl ZipList {
     }
 
     fn get_offset_index(&self, index: usize) -> Option<usize> {
-        if index < self.len() as usize {
+        if index == 0 {
+            Some(ZipList::OFFSET_VALUE)
+        } else if index < self.len() as usize {
             let mut offset = ZipList::OFFSET_VALUE;
             for _ in 0..index {
                 let len_value = ZipListNode::read_bytes_of_value(&self.0[offset..]);
-                offset += len_value + ZipListNode::LEN_NODE * 2;
+                offset += len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             }
             Some(offset)
         } else {
@@ -181,12 +183,12 @@ impl ZipList {
             return vec![];
         }
         let node = node.expect("");
-        let pop_value = node.0.clone().to_vec();
+        let pop_value = node.value().to_vec();
 
         let size_node = node.bytes_of_node();
         unsafe {
-            let p = self.0[offset..].as_mut_ptr();
-            ptr::copy(p.offset(size_node as isize), p, size_node);
+            let p = self.0.as_mut_ptr().offset(offset as isize);
+            ptr::copy(p.offset(size_node as isize), p, self.0.len() - offset - size_node);
         }
         self.0.truncate(self.0.len() - size_node);
 
@@ -201,12 +203,12 @@ impl ZipList {
         let len = self.len() - 1;
         self.set_len(len);
 
-        let right = ZipListNode::from_end(self.0.as_slice());
+        let right = ZipListNode::from_end(&self.0[ZipList::OFFSET_VALUE..]);
         if right.is_none() {
             return vec![];
         }
         let right = right.expect("");
-        let pop_value = right.0.clone().to_vec();
+        let pop_value = right.value().to_vec();
         let offset = self.0.len() - right.bytes_of_node();
         self.0.truncate(offset);
         pop_value
@@ -217,7 +219,7 @@ impl ZipList {
         self.set_len(s);
 
         let old_len = self.0.len();
-        let add_len = BYTES_LEN_TYPE + value.len();
+        let add_len = ZipListNode::count_bytes(value);
 
         // fn resize will set the default value, so replace with  reserve and set_len
         self.0.reserve(add_len);
@@ -236,8 +238,8 @@ impl ZipList {
             unsafe {
                 self.0.set_len(old_bytes + add_bytes);
                 let p = self.0.as_mut_ptr().offset(offset as isize);
-                ptr::copy(p, p.offset(add_bytes as isize), old_bytes);
-                ZipListNode::write_value(value, self.0.as_mut_ptr().offset(offset as isize));
+                ptr::copy(p, p.offset(add_bytes as isize), old_bytes - offset);
+                ZipListNode::write_value(value, p);
             }
             true
         } else {
@@ -320,7 +322,7 @@ impl ZipList {
             let old_value = node.value().to_vec();
             let old_bytes_value = node.bytes_of_value();
 
-            let p = unsafe{ self.0.as_mut_ptr().offset(offset as isize) };
+            let p = unsafe { self.0.as_mut_ptr().offset(offset as isize) };
             //这里一定要使用isize,因为可能为负数
             let diff: isize = value.len() as isize - (old_bytes_value as isize);
             if diff == 0 {
@@ -351,7 +353,7 @@ impl ZipList {
         if count > 0 {
             let mut it = ZipListIter::new(self);
             loop {
-                if let Some(node) = it.next(){
+                if let Some(node) = it.next() {
                     if value.eq(node.value()) {
                         let pre_offset = it.prev_offset();
                         if let Some(offset) = pre_offset {
@@ -363,8 +365,8 @@ impl ZipList {
                             log::error!("inner error");
                         }
                     }
-                }else{
-                    break
+                } else {
+                    break;
                 }
             }
         } else if count < 0 {
@@ -383,13 +385,13 @@ impl ZipList {
                             log::error!("inner error");
                         }
                     }
-                }else{
+                } else {
                     break;
                 }
             }
         } else {
             let mut it = ZipListIter::new(self);
-            loop  {
+            loop {
                 if let Some(node) = it.next() {
                     if value.eq(node.value()) {
                         let pre_offset = it.prev_offset();
@@ -399,20 +401,20 @@ impl ZipList {
                             log::error!("inner error");
                         }
                     }
-                }else{
-                    break
+                } else {
+                    break;
                 }
             }
         }
 
         let will_remove = removes.len();
-        if !removes.is_empty(){
+        if !removes.is_empty() {
             let mut merge_removes = vec![removes.first().expect("").clone()];
             let mut last = merge_removes.last_mut().expect("");
             for i in 1..removes.len() {
-                if last.1 == removes[i].0{
+                if last.1 == removes[i].0 {
                     last.1 = removes[i].1;
-                }else{
+                } else {
                     merge_removes.push(removes[i]);
                     last = merge_removes.last_mut().expect("");
                 }
@@ -444,7 +446,7 @@ impl ZipList {
     pub fn index<'a>(&'a self, index: i32) -> Option<&'a [u8]> {
         let offset = self.get_offset_index(index as usize);
         if let Some(offset) = offset {
-            let node = ZipListNode::read_value(&self.0,offset);
+            let node = ZipListNode::read_value(&self.0, offset);
             Some(node)
         } else {
             None
@@ -456,14 +458,14 @@ impl ZipList {
         let mut result = Vec::with_capacity(len as usize);
         let mut index = 0;
         let mut it = ZipListIter::new(self);
-        loop{
+        loop {
             let node = it.next();
             if let Some(node) = node {
                 if index >= start && index <= stop {
                     result.push(node.value().to_vec());
                 }
-            }else{
-                break
+            } else {
+                break;
             }
             index += 1;
         }
@@ -529,10 +531,10 @@ impl<'a> ZipListIter<'a> {
     }
 
     fn prev_offset(&self) -> Option<usize> {
-        if self.start_cur >= ZipListNode::LEN_NODE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::LEN_NODE * 2..]);
+        if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
+            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE * 2..]);
             let mut cur = self.start_cur;
-            cur -= len_value + ZipListNode::LEN_NODE * 2;
+            cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             Some(cur)
         } else {
             None
@@ -543,7 +545,7 @@ impl<'a> ZipListIter<'a> {
         if self.start_cur < self.zip_list.len() {
             let len_value = ZipListNode::read_bytes_of_value(self.zip_list);
             let mut cur = self.start_cur;
-            cur += len_value + ZipListNode::LEN_NODE * 2;
+            cur += len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             Some(cur)
         } else {
             None
@@ -551,10 +553,10 @@ impl<'a> ZipListIter<'a> {
     }
 
     fn prev(&mut self) -> Option<ZipListNode<'a>> {
-        if self.start_cur >= ZipListNode::LEN_NODE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::LEN_NODE * 2..]);
+        if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
+            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE * 2..]);
             let cur = self.start_cur;
-            self.start_cur -= len_value + ZipListNode::LEN_NODE * 2;
+            self.start_cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             ZipListNode::from_start(&self.zip_list[self.start_cur..cur])
         } else {
             None
@@ -562,12 +564,12 @@ impl<'a> ZipListIter<'a> {
     }
 
     fn next_back(&mut self) -> Option<ZipListNode<'a>> {
-        let mut p = self.start_cur - ZipListNode::LEN_NODE;
+        let mut p = self.start_cur - ZipListNode::SIZE_NODE_TYPE;
         if p < 0 {
             None
         } else {
             let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[p..]);
-            p -= len_value + ZipListNode::LEN_NODE;
+            p -= len_value + ZipListNode::SIZE_NODE_TYPE;
             if p < 0 {
                 None
             } else {
@@ -585,7 +587,7 @@ impl<'a> Iterator for ZipListIter<'a> {
         if self.start_cur < self.zip_list.len() {
             let len_value = ZipListNode::read_bytes_of_value(self.zip_list);
             let cur = self.start_cur;
-            self.start_cur += len_value + ZipListNode::LEN_NODE * 2;
+            self.start_cur += len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             ZipListNode::from_start(&self.zip_list[cur..self.start_cur])
         } else {
             None
@@ -599,22 +601,61 @@ mod test {
     use crate::redis_rocksdb::zip_list::{ZipList, ZipListIter};
 
     #[test]
-    fn test_sub_uzise() {
-        let a = (||{
-            return 4usize;
-        })();
-        let b = 10usize;
-        let t = a.wrapping_sub(b);
-        println!("{}\n{}", t, usize::MAX);
+    fn test_zip_list_push_right() {
+        let mut zip = ZipList::new();
+        zip.push_right(&[1]);
+
+        assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        zip.push_right(&[2, 3]);
+        assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        zip.push_right(&[4, 5, 6]);
+        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0], zip.0.as_slice());
     }
 
     #[test]
-    fn test_zip_list_iterator() {
+    fn test_zip_list_push_left() {
         let mut zip = ZipList::new();
-        zip.push_left(&[1, 2, 3]);
+        zip.push_left(&[1]);
+        assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        zip.push_left(&[2, 3]);
+        assert_eq!(&[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         zip.push_left(&[4, 5, 6]);
-        zip.push_left(&[7, 8, 9]);
+        assert_eq!(&[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+    }
 
-        let it = ZipListIter::new(&zip);
+    #[test]
+    fn test_zip_list_pop_right() {
+        let mut zip = ZipList::new();
+        zip.push_right(&[1]);
+
+        let v = zip.pop_right();
+        assert_eq!(&[1], v.as_slice());
+        assert_eq!(0, zip.len());
+        assert_eq!(&[0, 0, 0, 0], zip.0.as_slice());
+
+        zip.push_right(&[1]);
+        zip.push_right(&[2, 3]);
+        let v = zip.pop_right();
+        assert_eq!(&[2, 3], v.as_slice());
+        assert_eq!(1, zip.len());
+        assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+    }
+
+    #[test]
+    fn test_zip_list_pop_left() {
+        let mut zip = ZipList::new();
+        zip.push_left(&[1]);
+
+        let v = zip.pop_left();
+        assert_eq!(&[1], v.as_slice());
+        assert_eq!(0, zip.len());
+        assert_eq!(&[0, 0, 0, 0], zip.0.as_slice());
+
+        zip.push_left(&[1]);
+        zip.push_right(&[2, 3]);
+        let v = zip.pop_left();
+        assert_eq!(&[1], v.as_slice());
+        assert_eq!(1, zip.len());
+        assert_eq!(&[1, 0, 0, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
     }
 }

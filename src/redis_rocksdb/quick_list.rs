@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Put;
 
-use crate::{Error, LenType, MetaKey, read_len_type, BYTES_LEN_TYPE, write_len_type};
+use crate::{BYTES_LEN_TYPE, Error, LenType, MetaKey, read_len_type, write_len_type};
 use crate::redis_rocksdb::quick_list_node::QuickListNode;
 use crate::redis_rocksdb::zip_list::ZipList;
 
@@ -215,15 +215,15 @@ impl QuickList {
     }
 
     pub(crate) fn list_insert(&mut self, tr: &Transaction<TransactionDB>, list_key: &[u8], pivot: &[u8], value: &[u8],
-                              f: fn(&mut ZipList,&[u8],&[u8]) -> Option<i32>) -> Result<i32, Error>{
+                              f: fn(&mut ZipList, &[u8], &[u8]) -> Option<i32>) -> Result<i32, Error> {
         let mut quick = self;
         let mut node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
         let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
 
-        let (zip,zip_key) = loop {
+        let (zip, zip_key) = loop {
             let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
             let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
-            let t = f(&mut zip,pivot.as_ref(), value.as_ref());
+            let t = f(&mut zip, pivot.as_ref(), value.as_ref());
             if t.is_some() {
                 break (Some(zip), zip_key.clone());
             }

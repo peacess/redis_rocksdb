@@ -3,7 +3,7 @@ use core::mem;
 use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
 
-use crate::{Error, LenType, MetaKey, read_len_type, BYTES_LEN_TYPE, write_len_type};
+use crate::{BYTES_LEN_TYPE, Error, LenType, MetaKey, read_len_type, write_len_type};
 
 ///
 /// ```rust
