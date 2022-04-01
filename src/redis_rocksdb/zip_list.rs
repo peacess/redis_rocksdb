@@ -311,7 +311,6 @@ impl ZipList {
 
     //返回原来的值
     pub fn set(&mut self, index: i32, value: &[u8]) -> Option<Vec<u8>> {
-        // todo if the index > value_len
         let offset = self.get_offset_index(index as usize);
         if let Some(offset) = offset {
             let node = ZipListNode::from_start(&self.0[offset..]);
@@ -321,8 +320,9 @@ impl ZipList {
             let node = node.expect("");
             let old_value = node.value().to_vec();
             let old_bytes_value = node.bytes_of_value();
+            let old_bytes_node = node.bytes_of_node();
 
-            let p = unsafe { self.0.as_mut_ptr().offset(offset as isize) };
+            let mut p = unsafe { self.0.as_mut_ptr().offset(offset as isize) };
             //这里一定要使用isize,因为可能为负数
             let diff: isize = value.len() as isize - (old_bytes_value as isize);
             if diff == 0 {
@@ -331,13 +331,19 @@ impl ZipList {
                 unsafe {
                     self.0.reserve(diff as usize);
                     self.0.set_len(self.0.len() + diff as usize);
-                    ptr::copy(p, p.offset(diff as isize), self.0.len() - offset - diff as usize);
+                    //重新计算p的位置，当vec大小变化后，内存可能会变化
+                    p = self.0.as_mut_ptr().offset(offset as isize);
+                    let count = self.0.len() - diff as usize - offset - old_bytes_node;
+                    if count > 0 {
+                        ptr::copy(p.offset(old_bytes_node as isize), p.offset(old_bytes_node as isize + diff as isize), count);
+                    }
                 }
             } else if diff < 0 {
                 unsafe {
-                    ptr::copy(p, p.offset(diff), self.0.len() - offset);
+                    ptr::copy(p.offset(old_bytes_node as isize), p.offset(old_bytes_node as isize - diff.abs()), self.0.len() - offset);
                 }
-                self.0.truncate(self.0.len() - diff as usize);
+                self.0.truncate(self.0.len() - diff.abs() as usize);
+                unsafe { p = self.0.as_mut_ptr().offset(offset as isize); }
             }
 
             ZipListNode::write_value(value, p);
@@ -657,5 +663,58 @@ mod test {
         assert_eq!(&[1], v.as_slice());
         assert_eq!(1, zip.len());
         assert_eq!(&[1, 0, 0, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+    }
+
+    #[test]
+    fn test_zip_list_set_index() {
+        let mut zip = ZipList::new();
+        {// one
+            zip.push_right(&[1]);
+
+            let node = zip.index(1);
+            assert_eq!(node, None);
+
+            let node = zip.index(0);
+            assert_eq!(node.expect(""), &[1]);
+
+            let node = zip.set(1, &[2, 3]);
+            assert_eq!(node, None);
+
+            let node = zip.set(0, &[2, 3]);
+            assert_eq!(node.expect("").as_slice(), &[1]);
+
+            let node = zip.index(0);
+            assert_eq!(node.expect(""), &[2, 3]);
+
+            let node = zip.set(0, &[1]);
+            assert_eq!(node.expect("").as_slice(), &[2,3]);
+            let node = zip.index(0);
+            assert_eq!(node.expect(""), &[1]);
+        }
+
+        { //two
+            zip.push_right(&[2,3]);
+
+            let node = zip.set(0, &[10]);
+            assert_eq!(node.expect("").as_slice(), &[1]);
+            assert_eq!(&[2,0,0,0, 1,0,10,1,0, 2,0,2,3,2,0], zip.0.as_slice());
+            let node = zip.set(0, &[1,4,5]);
+            assert_eq!(node.expect("").as_slice(), &[10]);
+            assert_eq!(&[2,0,0,0, 3,0,1,4,5,3,0, 2,0,2,3,2,0], zip.0.as_slice());
+            let node = zip.set(0, &[1]);
+            assert_eq!(node.expect("").as_slice(), &[1,4,5]);
+
+            let node = zip.set(1, &[1]);
+            assert_eq!(node.expect("").as_slice(), &[2,3]);
+            assert_eq!(&[2,0,0,0, 1,0,1,1,0, 1,0,1,1,0], zip.0.as_slice());
+
+            let node = zip.set(1, &[2,3]);
+            assert_eq!(node.expect("").as_slice(), &[1]);
+            assert_eq!(&[2,0,0,0, 1,0,1,1,0, 2,0,2,3,2,0], zip.0.as_slice());
+
+        }
+        // {
+        //     //three
+        // }
     }
 }
