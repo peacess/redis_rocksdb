@@ -1,5 +1,6 @@
 extern crate core;
 
+pub use error::RrError;
 pub use hash::*;
 pub use list::*;
 pub use redis_rocksdb::redis_rocksdb::*;
@@ -13,4 +14,5 @@ mod sorted_set;
 mod hash;
 mod types;
 pub mod redis_rocksdb;
+mod error;
 

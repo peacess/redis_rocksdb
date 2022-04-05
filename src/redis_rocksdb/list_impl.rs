@@ -1,6 +1,7 @@
+use anyhow::Context;
 use ckb_rocksdb::prelude::{Delete, Put, TransactionBegin};
 
-use crate::{Bytes, Direction, Error, LenType, RedisList, RedisRocksdb};
+use crate::{Bytes, LenType, RedisList, RedisRocksdb, RrError};
 use crate::redis_rocksdb::quick_list::QuickList;
 use crate::redis_rocksdb::quick_list_node::QuickListNode;
 use crate::redis_rocksdb::zip_list::ZipList;
@@ -10,43 +11,43 @@ use crate::redis_rocksdb::zip_list::ZipList;
 ///
 /// redis中的list使用quicklist与ziplist实现
 impl RedisList for RedisRocksdb {
-    fn blpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, Error> {
+    fn blpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, RrError> {
         todo!()
     }
 
-    fn brpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, Error> {
+    fn brpop<K: Bytes, V: Bytes>(&mut self, key: K, timeout: i64) -> Result<V, RrError> {
         todo!()
     }
 
-    fn brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, timeout: i64) -> Result<V, Error> {
+    fn brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: K, dstkey: K, timeout: i64) -> Result<V, RrError> {
         todo!()
     }
 
-    fn lindex<K: Bytes>(&self, key: K, index: i32) -> Result<Vec<u8>, Error> {
-        let t = QuickList::get(&self.db, key.as_ref())?.ok_or(Error::not_find("key of list"))?;
+    fn lindex<K: Bytes>(&self, key: K, index: i32) -> Result<Vec<u8>, RrError> {
+        let t = QuickList::get(&self.db, key.as_ref())?.ok_or(RrError::not_find("key of list"))?;
         if index >= t.len_list() as i32 {
-            return Err(Error::not_find(&format!("the index {}", index)));
+            return Err(RrError::not_find(&format!("the index {}", index)));
         }
         //todo read only
         let tr = self.db.transaction_default();
-        let node_key = t.left().ok_or(Error::none_error("left of quick list"))?;
-        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+        let node_key = t.left().context("left of quick list")?;
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.context("left node")?;
         let mut it_index = 0i32;
         it_index += node.len_list() as i32;
         while index >= it_index {
-            let next_key = node.right().ok_or(Error::none_error("right node"))?;
-            node = QuickListNode::get(&tr, next_key.as_ref())?.ok_or(Error::none_error("next node"))?;
+            let next_key = node.right().context("right node")?;
+            node = QuickListNode::get(&tr, next_key.as_ref())?.context("next node")?;
             it_index += node.len_list() as i32;
         }
 
-        let value_key = node.values_key().ok_or(Error::none_error("value key"))?;
-        let zip = ZipList::get(&tr, value_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let value_key = node.values_key().context("value key")?;
+        let zip = ZipList::get(&tr, value_key.as_ref())?.context("zip list")?;
         let zip_index = index - (it_index - node.len_list() as i32);
-        let v = zip.index(zip_index).ok_or(Error::not_find(&format!("the index {}", index)))?;
+        let v = zip.index(zip_index).ok_or(RrError::not_find(&format!("the index {}", index)))?;
         tr.commit()?;
         Ok(v.to_vec())
     }
-    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error> {
+    fn linsert_before<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, RrError> {
         let mut quick = {
             match QuickList::get(&self.db, key.as_ref())? {
                 None => return Ok(0),
@@ -59,7 +60,7 @@ impl RedisList for RedisRocksdb {
         Ok(result)
     }
 
-    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, Error> {
+    fn linsert_after<K: Bytes, P: Bytes, V: Bytes>(&mut self, key: K, pivot: P, value: V) -> Result<i32, RrError> {
         let mut quick = {
             match QuickList::get(&self.db, key.as_ref())? {
                 None => return Ok(0),
@@ -73,7 +74,7 @@ impl RedisList for RedisRocksdb {
         Ok(result)
     }
 
-    fn llen<K: Bytes>(&self, key: K) -> Result<i32, Error> {
+    fn llen<K: Bytes>(&self, key: K) -> Result<i32, RrError> {
         match QuickList::get(&self.db, key.as_ref())? {
             None => Ok(-1),
             Some(quick) => {
@@ -82,16 +83,16 @@ impl RedisList for RedisRocksdb {
         }
     }
 
-    fn lpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, Error> {
+    fn lpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
-            None => return Err(Error::not_find("key of list")),
+            None => return Err(RrError::not_find("key of list")),
             Some(q) => q
         };
-        let node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
-        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
-        let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
-        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let node_key = quick.left().ok_or(RrError::none_error("left key"))?.clone();
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
+        let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?.clone();
+        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip list"))?;
         let value = zip.pop_left();
 
         if zip.len() == 0 {
@@ -126,7 +127,7 @@ impl RedisList for RedisRocksdb {
         Ok(value)
     }
 
-    fn lpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+    fn lpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => {
@@ -141,7 +142,7 @@ impl RedisList for RedisRocksdb {
         Ok(re)
     }
 
-    fn lpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+    fn lpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, RrError> {
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(0),
             Some(q) => q
@@ -153,7 +154,7 @@ impl RedisList for RedisRocksdb {
     }
 
 
-    fn lrange<K: Bytes>(&self, list_key: K, start: i32, stop: i32) -> Result<Vec<Vec<u8>>, Error> {
+    fn lrange<K: Bytes>(&self, list_key: K, start: i32, stop: i32) -> Result<Vec<Vec<u8>>, RrError> {
         let mut result = Vec::new();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(result),
@@ -172,16 +173,16 @@ impl RedisList for RedisRocksdb {
         //todo read only
         let tr = self.db.transaction_default();
 
-        let mut node_key = quick.left().ok_or(Error::none_error("left key"))?;
-        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("quick list node"))?;
+        let mut node_key = quick.left().ok_or(RrError::none_error("left key"))?;
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("quick list node"))?;
         let mut offset = 0usize;
         loop {
             let len_zip = node.len_list();
             if start_index < len_zip as usize + offset {
                 let temp = ZipList::count_in_index(len_zip, offset, start_index, stop_index);
                 if let Some((start_in, stop_in)) = temp {
-                    let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?;
-                    let zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip"))?;
+                    let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?;
+                    let zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip"))?;
                     let one = zip.range(start_in as i32, stop_in as i32);
                     result.extend(one);
                 }//else 是没有数据
@@ -193,7 +194,7 @@ impl RedisList for RedisRocksdb {
             }
 
             if let Some(t) = node.right() {
-                node = QuickListNode::get(&tr, t.as_ref())?.ok_or(Error::none_error("quick list node"))?;
+                node = QuickListNode::get(&tr, t.as_ref())?.ok_or(RrError::none_error("quick list node"))?;
             } else {
                 // 没有更多的节点
                 break;
@@ -204,7 +205,7 @@ impl RedisList for RedisRocksdb {
         Ok(result)
     }
 
-    fn lrem<K: Bytes, V: Bytes>(&mut self, list_key: K, count: i32, value: V) -> Result<LenType, Error> {
+    fn lrem<K: Bytes, V: Bytes>(&mut self, list_key: K, count: i32, value: V) -> Result<LenType, RrError> {
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(0),
             Some(q) => q
@@ -216,12 +217,12 @@ impl RedisList for RedisRocksdb {
 
         if count > 0 { //正向遍历
             let count = count as usize;
-            let mut node_key = quick.left().ok_or(Error::none_error("left key"))?.clone();
-            let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+            let mut node_key = quick.left().ok_or(RrError::none_error("left key"))?.clone();
+            let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
 
             loop {
-                let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
-                let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip"))?;
+                let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?.clone();
+                let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip"))?;
 
                 let done = zip.rem((count - rem_count as usize) as i32, value.as_ref());
                 rem_count += done;
@@ -241,14 +242,14 @@ impl RedisList for RedisRocksdb {
                                 tr.delete(&list_key)?;
                             }
                             (Some(left_key), None) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(Error::none_error("left node"))?;
+                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
                                 left_node.set_right(&None);
                                 tr.delete(node_key)?;
                                 tr.put(&list_key, &left_node)?;
                             }
                             (Some(left_key), Some(right_key)) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(Error::none_error("left node"))?;
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
+                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
                                 left_node.set_right(&Some(right_key));
                                 right_node.set_right(&Some(left_key));
                                 tr.delete(node_key)?;
@@ -256,7 +257,7 @@ impl RedisList for RedisRocksdb {
                                 tr.put(right_key, &right_node)?;
                             }
                             (None, Some(right_key)) => {
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
                                 right_node.set_left(&None);
                                 //todo quick 的right是否要处理
                                 quick.set_left(&Some(right_key));
@@ -279,7 +280,7 @@ impl RedisList for RedisRocksdb {
                 } else {
                     break;
                 }
-                node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("right node"))?;
+                node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
             }
         } else if count < 0 { //反向遍历
             let count = count.abs() as usize;
@@ -296,7 +297,7 @@ impl RedisList for RedisRocksdb {
         Ok(rem_count)
     }
 
-    fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, Error> {
+    fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, RrError> {
         todo!()
     }
 
@@ -305,16 +306,16 @@ impl RedisList for RedisRocksdb {
     }
 
 
-    fn rpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, Error> {
+    fn rpop<K: Bytes>(&mut self, list_key: K) -> Result<Vec<u8>, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
-            None => return Err(Error::not_find("key of list")),
+            None => return Err(RrError::not_find("key of list")),
             Some(q) => q
         };
-        let node_key = quick.right().ok_or(Error::none_error("right key"))?.clone();
-        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(Error::none_error("right node"))?;
-        let zip_key = node.values_key().ok_or(Error::none_error("zip key"))?.clone();
-        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(Error::none_error("zip list"))?;
+        let node_key = quick.right().ok_or(RrError::none_error("right key"))?.clone();
+        let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
+        let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?.clone();
+        let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip list"))?;
         let value = zip.pop_right();
 
         if zip.len() == 0 {
@@ -349,11 +350,11 @@ impl RedisList for RedisRocksdb {
         Ok(value)
     }
 
-    fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: K, dstkey: K) -> Result<V, Error> {
+    fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: K, dstkey: K) -> Result<V, RrError> {
         todo!()
     }
 
-    fn rpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+    fn rpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => {
@@ -368,7 +369,7 @@ impl RedisList for RedisRocksdb {
         Ok(re)
     }
 
-    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, Error> {
+    fn rpush_exists<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(0),

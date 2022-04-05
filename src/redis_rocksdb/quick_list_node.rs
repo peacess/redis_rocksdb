@@ -3,7 +3,7 @@ use core::mem;
 use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
 
-use crate::{BYTES_LEN_TYPE, Error, LenType, MetaKey, read_len_type, write_len_type};
+use crate::{BYTES_LEN_TYPE, LenType, MetaKey, read_len_type, RrError, write_len_type};
 
 ///
 /// ```rust
@@ -39,7 +39,7 @@ impl QuickListNode {
         QuickListNode([0; mem::size_of::<_QuickListNode>()])
     }
 
-    pub(crate) fn get(tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<QuickListNode>, Error> {
+    pub(crate) fn get(tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<QuickListNode>, RrError> {
         let v = tr.get(key)?;
         match v {
             None => Ok(None),
@@ -48,7 +48,7 @@ impl QuickListNode {
                     let t: [u8; mem::size_of::<QuickListNode>()] = v.to_vec().as_slice().try_into()?;
                     Ok(Some(QuickListNode::from(t)))
                 } else {
-                    Err(Error::new("can not convert vec to QuickListNode, the len is not eq".to_owned()))
+                    Err(RrError::message("can not convert vec to QuickListNode, the len is not eq".to_owned()))
                 }
             }
         }

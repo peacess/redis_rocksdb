@@ -1,80 +1,22 @@
-use core::{mem};
-use std::{error, fmt};
-use std::array::TryFromSliceError;
+use core::mem;
+use std::{fmt};
 use std::fmt::{Display, Formatter};
 
 pub trait Bytes : AsRef<[u8]> {
+}
+
+impl Bytes for &[u8] {
+
+}
+
+impl Bytes for Vec<u8> {
+
 }
 
 /// Enum for the LEFT | RIGHT args used by some commands
 pub enum Direction {
     Left,
     Right,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Error {
-    message: String,
-}
-
-impl Error {
-    pub(crate) fn new(message: String) -> Error {
-        Error { message }
-    }
-    pub fn into_string(self) -> String {
-        self.into()
-    }
-
-    pub(crate) fn none_error(name: &str) -> Error { Error { message: format! {"{} is none", name} } }
-    pub(crate) fn not_find(name: &str) -> Error { Error { message: format! {"{} is not find", name} } }
-}
-
-impl AsRef<str> for Error {
-    fn as_ref(&self) -> &str {
-        &self.message
-    }
-}
-
-impl From<Error> for String {
-    fn from(e: Error) -> String {
-        e.message
-    }
-}
-
-// impl From<rocksdb::Error> for Error {
-//     fn from(e: rocksdb::Error) -> Self {
-//         Error {
-//             message: e.into_string(),
-//         }
-//     }
-// }
-
-impl From<ckb_rocksdb::Error> for Error {
-    fn from(e: ckb_rocksdb::Error) -> Self {
-        Error {
-            message: e.into_string(),
-        }
-    }
-}
-
-impl From<TryFromSliceError> for Error {
-    fn from(e: TryFromSliceError) -> Self {
-        Error {
-            message: e.to_string(),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.message.fmt(formatter)
-    }
 }
 
 pub type LenType = u32;
