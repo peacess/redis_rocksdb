@@ -345,7 +345,7 @@ impl ZipList {
             }
         } else if count < 0 {
             let mut it = ZipListIter::new(self);
-            it.start_cur = it.len as usize;
+            it.start_cur = it.zip_list.len() as usize;
             loop {
                 if let Some(node) = it.next_back() {
                     if value.eq(node.value()) {
@@ -363,6 +363,7 @@ impl ZipList {
                     break;
                 }
             }
+            removes.reverse()//这是从后面开始遍历的，所以需要反过来
         } else {
             let mut it = ZipListIter::new(self);
             loop {
@@ -396,7 +397,7 @@ impl ZipList {
 
             std::mem::drop(removes);
             for it in merge_removes.iter().rev() {
-                self.remove_start_end(it.0 as usize, it.1 as usize);
+                self.remove_start_end(it.0 as usize, it.1 as usize - 1);
             }
             self.set_len(self.len() - will_remove as u32);
         }
@@ -407,8 +408,8 @@ impl ZipList {
     //删除指定位置的数据，不会维护 len
     fn remove_start_end(&mut self, start: usize, end: usize) {
         let mut p = self.0[start..].as_mut_ptr();
-        unsafe { ptr::copy(p.offset(end as isize), p, self.0.len() - end); }
-        self.0.truncate(self.0.len() - (end - start));
+        unsafe { ptr::copy(p.offset(end as isize - start as isize + 1), p, self.0.len() - end - 1); }
+        self.0.truncate(self.0.len() - (end - start) - 1);
     }
 
     pub fn clear(&mut self) {
@@ -502,6 +503,7 @@ struct ZipListIter<'a> {
     zip_list: &'a [u8],
     len: LenType,
     start_cur: usize,
+    pre: Option<usize>,
 }
 
 impl<'a> ZipListIter<'a> {
@@ -510,6 +512,7 @@ impl<'a> ZipListIter<'a> {
             zip_list: &zip.0[ZipList::OFFSET_VALUE..],
             len: zip.len(),
             start_cur: 0,
+            pre: None,
         }
     }
 
@@ -519,10 +522,10 @@ impl<'a> ZipListIter<'a> {
 
     fn prev_offset(&self) -> Option<usize> {
         if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE * 2..]);
+            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..]);
             let mut cur = self.start_cur;
             cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
-            Some(cur)
+            Some(cur + ZipList::OFFSET_VALUE)
         } else {
             None
         }
@@ -533,7 +536,7 @@ impl<'a> ZipListIter<'a> {
             let len_value = ZipListNode::read_bytes_of_value(self.zip_list);
             let mut cur = self.start_cur;
             cur += len_value + ZipListNode::SIZE_NODE_TYPE * 2;
-            Some(cur)
+            Some(cur + ZipList::OFFSET_VALUE)
         } else {
             None
         }
@@ -541,9 +544,10 @@ impl<'a> ZipListIter<'a> {
 
     fn prev(&mut self) -> Option<ZipListNode<'a>> {
         if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE ..]);
+            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..]);
             let cur = self.start_cur;
             self.start_cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
+            self.pre = Some(cur);
             ZipListNode::from_start(&self.zip_list[self.start_cur..cur])
         } else {
             None
@@ -555,14 +559,15 @@ impl<'a> ZipListIter<'a> {
         if p < 0 {
             None
         } else {
-            let mut p = p as usize;
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[p..]);
-            p -= len_value + ZipListNode::SIZE_NODE_TYPE;
-            if p < 0 {
+            let mut offset = p as usize;
+            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[offset..]);
+            offset -= (len_value + ZipListNode::SIZE_NODE_TYPE);
+            if offset < 0 {
                 None
             } else {
-                (p, self.start_cur) = (self.start_cur, p);
-                ZipListNode::from_start(&self.zip_list[self.start_cur..p])
+                (offset, self.start_cur) = (self.start_cur, offset);
+                self.pre = Some(offset);
+                ZipListNode::from_start(&self.zip_list[self.start_cur..offset])
             }
         }
     }
@@ -576,6 +581,7 @@ impl<'a> Iterator for ZipListIter<'a> {
             let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur..]);
             let cur = self.start_cur;
             self.start_cur += len_value + ZipListNode::SIZE_NODE_TYPE * 2;
+            self.pre = Some(cur);
             ZipListNode::from_start(&self.zip_list[cur..self.start_cur])
         } else {
             None
@@ -744,7 +750,7 @@ mod test {
         assert_eq!(None, re);
 
         zip.insert_left(0, &[1]);
-        re = zip.insert_value_left(&[1],&[2,3]);
+        re = zip.insert_value_left(&[1], &[2, 3]);
         assert_eq!(Some(0), re);
         assert_eq!(&[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         re = zip.insert_value_left(&[1], &[4, 5, 6]);
@@ -754,18 +760,16 @@ mod test {
         zip.clear();
         zip.insert_left(0, &[1]);
 
-        re = zip.insert_value_left(&[1,0],&[2,3]);
+        re = zip.insert_value_left(&[1, 0], &[2, 3]);
         assert_eq!(None, re);
-        re = zip.insert_value_left(&[1],&[2,3]);
+        re = zip.insert_value_left(&[1], &[2, 3]);
         assert_eq!(Some(0), re);
-        re = zip.insert_value_left(&[2,3], &[4, 5, 6]);
+        re = zip.insert_value_left(&[2, 3], &[4, 5, 6]);
         assert_eq!(Some(0), re);
         assert_eq!(&[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
-        re = zip.insert_value_left(&[2,3], &[7]);
+        re = zip.insert_value_left(&[2, 3], &[7]);
         assert_eq!(Some(1), re);
         assert_eq!(&[4, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
-
-
     }
 
     #[test]
@@ -773,7 +777,7 @@ mod test {
         let mut zip = ZipList::new();
         let mut re = zip.insert_value_right(&[1], &[1]);
         assert_eq!(None, re);
-        zip.insert_right(0,&[1]);
+        zip.insert_right(0, &[1]);
 
         re = zip.insert_value_right(&[1], &[2, 3]);
         assert_eq!(Some(0), re);
@@ -783,21 +787,20 @@ mod test {
         assert_eq!(Some(0), re);
         assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
 
-        re = zip.insert_value_right(&[4,5,6], &[7]);
+        re = zip.insert_value_right(&[4, 5, 6], &[7]);
         assert_eq!(Some(1), re);
         assert_eq!(&[4, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
-
     }
 
     #[test]
     fn test_zip_list_rem() {
         let mut zip = ZipList::new();
 
-        let mut re = zip.rem(1,&[1]);
+        let mut re = zip.rem(1, &[1]);
         assert_eq!(0, re);
-        re = zip.rem(0,&[1]);
+        re = zip.rem(0, &[1]);
         assert_eq!(0, re);
-        re = zip.rem(-1,&[1]);
+        re = zip.rem(-1, &[1]);
         assert_eq!(0, re);
 
         {

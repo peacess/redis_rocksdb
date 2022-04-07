@@ -1,17 +1,12 @@
 use core::mem;
-use std::{fmt};
+use std::fmt;
 use std::fmt::{Display, Formatter};
 
-pub trait Bytes : AsRef<[u8]> {
-}
+pub trait Bytes: AsRef<[u8]> {}
 
-impl Bytes for &[u8] {
+impl Bytes for &[u8] {}
 
-}
-
-impl Bytes for Vec<u8> {
-
-}
+impl Bytes for Vec<u8> {}
 
 /// Enum for the LEFT | RIGHT args used by some commands
 pub enum Direction {
