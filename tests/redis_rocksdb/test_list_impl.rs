@@ -27,7 +27,7 @@ fn test_() {
         f(a)
     }
 
-    fn foo2<F: Fn(i32) -> i32>(a: i32, f: F ) -> i32 {
+    fn foo2<F: Fn(i32) -> i32>(a: i32, f: F) -> i32 {
         f(a)
     }
     println!("debug ");

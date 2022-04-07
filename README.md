@@ -1,14 +1,16 @@
 # redis_rocksdb
 
-rust implement structure kv(key/value) embedded database, storage by rocksdb  
+rust implement structure kv(key/value) embedded database, storage by rocksdb
 
-# Sample 
+# Sample
+
 ```rust
 
 
 ```
 
-# See:    
+# See:
+
 [ssdb-rocks(c++)](https://github.com/ansoda/ssdb-rocksdb)  
 [ssdb](https://ssdb.io/zh_cn/)  
 [rust-rocksdb, no transaction](https://github.com/rust-rocksdb/rust-rocksdb)  

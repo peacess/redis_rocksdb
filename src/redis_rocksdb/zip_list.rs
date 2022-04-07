@@ -852,4 +852,58 @@ mod test {
             assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         }
     }
+
+    #[test]
+    fn test_zip_list_range() {
+        let mut zip = ZipList::new();
+        let mut rs = zip.range(0, 0);
+        assert_eq!(Vec::<Vec<u8>>::new(), rs);
+        rs = zip.range(0, 10);
+        assert_eq!(Vec::<Vec<u8>>::new(), rs);
+        rs = zip.range(0, 1);
+        assert_eq!(Vec::<Vec<u8>>::new(), rs);
+
+        zip.push_right(&[1]);
+        rs = zip.range(0, 0);
+        assert_eq!(vec![vec![1u8]], rs);
+        rs = zip.range(0, 1);
+        assert_eq!(vec![vec![1u8]], rs);
+        rs = zip.range(0, 10);
+        assert_eq!(vec![vec![1u8]], rs);
+
+        zip.push_right(&[2, 3]);
+        rs = zip.range(0, 0);
+        assert_eq!(vec![vec![1u8]], rs);
+        rs = zip.range(0, 1);
+        assert_eq!(vec![vec![1u8], vec![2, 3]], rs);
+        rs = zip.range(0, 10);
+        assert_eq!(vec![vec![1u8], vec![2, 3]], rs);
+
+        rs = zip.range(1, 1);
+        assert_eq!(vec![vec![2, 3]], rs);
+        rs = zip.range(1, 2);
+        assert_eq!(vec![vec![2, 3]], rs);
+        rs = zip.range(1, 10);
+        assert_eq!(vec![vec![2, 3]], rs);
+
+        zip.push_right(&[4, 5, 6]);
+        rs = zip.range(0, 0);
+        assert_eq!(vec![vec![1u8]], rs);
+        rs = zip.range(0, 1);
+        assert_eq!(vec![vec![1u8], vec![2, 3]], rs);
+        rs = zip.range(0, 3);
+        assert_eq!(vec![vec![1u8], vec![2, 3], vec![4, 5, 6]], rs);
+
+        rs = zip.range(1, 1);
+        assert_eq!(vec![vec![2, 3]], rs);
+        rs = zip.range(1, 2);
+        assert_eq!(vec![vec![2, 3], vec![4, 5, 6]], rs);
+        rs = zip.range(1, 3);
+        assert_eq!(vec![vec![2, 3], vec![4, 5, 6]], rs);
+
+        rs = zip.range(2, 2);
+        assert_eq!(vec![vec![4, 5, 6]], rs);
+        rs = zip.range(2, 3);
+        assert_eq!(vec![vec![4, 5, 6]], rs);
+    }
 }
