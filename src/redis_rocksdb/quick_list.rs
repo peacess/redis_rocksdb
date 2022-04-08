@@ -253,7 +253,7 @@ impl QuickList {
         //从后面开始删除
 
         let mut node_key = quick.right();
-        let mut node = QuickListNode::new();
+        let mut node;
         while let Some(key) = node_key {
             let key = key.clone();
             node = QuickListNode::get(&tr, key.as_ref())?.ok_or(RrError::none_error("node"))?;

@@ -1,7 +1,5 @@
 use std::array::TryFromSliceError;
-use std::fmt::{Display, Formatter, write};
-
-use anyhow::anyhow;
+use std::fmt::{Display, Formatter};
 
 use crate::RrError::Other;
 

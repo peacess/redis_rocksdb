@@ -159,7 +159,7 @@ impl RedisList for RedisRocksdb {
 
     fn lrange<K: Bytes>(&self, key: &K, start: i32, stop: i32) -> Result<Vec<Vec<u8>>, RrError> {
         let mut result = Vec::new();
-        let mut quick = match QuickList::get(&self.db, key.as_ref())? {
+        let quick = match QuickList::get(&self.db, key.as_ref())? {
             None => return Ok(result),
             Some(q) => q
         };
@@ -176,9 +176,9 @@ impl RedisList for RedisRocksdb {
         //todo read only
         let tr = self.db.transaction_default();
 
-        let mut node_key = quick.left().ok_or(RrError::none_error("left key"))?;
+        let node_key = quick.left().ok_or(RrError::none_error("left key"))?;
         let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("quick list node"))?;
-        let mut offset = 0usize;
+        let offset = 0usize;
         loop {
             let len_zip = node.len_list();
             if start_index < len_zip as usize + offset {
@@ -393,7 +393,7 @@ impl RedisList for RedisRocksdb {
             Some(q) => q
         };
         let re = quick.len_node();
-        quick.clear(&tr, key.as_ref());
+        quick.clear(&tr, key.as_ref())?;
         tr.commit()?;
         Ok(re as i32)
     }

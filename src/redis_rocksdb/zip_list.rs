@@ -3,7 +3,7 @@ use core::ptr;
 use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
 
-use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, read_int, read_len_type, RrError, write_int};
+use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, read_int, RrError, write_int};
 
 ///
 /// ```rust
@@ -28,7 +28,6 @@ type SizeNodeType = u16;
 
 impl<'a> ZipListNode<'a> {
     const SIZE_NODE_TYPE: usize = core::mem::size_of::<SizeNodeType>();
-    const OFFSET_VALUE: usize = ZipListNode::SIZE_NODE_TYPE;
 
     fn from_start(bytes: &'a [u8]) -> Option<Self> {
         let bytes_node = ZipListNode::read_bytes_of_value(bytes) + ZipListNode::SIZE_NODE_TYPE * 2;
@@ -330,7 +329,6 @@ impl ZipList {
     }
 
     pub fn rem(&mut self, count: i32, value: &[u8]) -> LenType {
-        let mut done: LenType = 0;
         let mut removes = Vec::<(isize, isize)>::new();
         if count > 0 {
             let mut it = ZipListIter::new(self);
@@ -415,7 +413,7 @@ impl ZipList {
 
     //删除指定位置的数据，不会维护 len
     fn remove_start_end(&mut self, start: usize, end: usize) {
-        let mut p = self.0[start..].as_mut_ptr();
+        let p = self.0[start..].as_mut_ptr();
         unsafe { ptr::copy(p.offset(end as isize - start as isize + 1), p, self.0.len() - end - 1); }
         self.0.truncate(self.0.len() - (end - start) - 1);
     }
@@ -569,10 +567,10 @@ impl<'a> ZipListIter<'a> {
         } else {
             let mut offset = p as usize;
             let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[offset..]);
-            offset -= (len_value + ZipListNode::SIZE_NODE_TYPE);
-            if offset < 0 {
+            if offset < (len_value + ZipListNode::SIZE_NODE_TYPE) {
                 None
             } else {
+                offset -= len_value + ZipListNode::SIZE_NODE_TYPE;
                 (offset, self.start_cur) = (self.start_cur, offset);
                 self.pre = Some(offset);
                 ZipListNode::from_start(&self.zip_list[self.start_cur..offset])

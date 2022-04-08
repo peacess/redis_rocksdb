@@ -115,14 +115,14 @@ type MetaKeyArray = [u8; 10];
 pub struct MetaKey(MetaKeyArray);
 
 impl MetaKey {
-    const len_seq: usize = mem::size_of::<u16>();
-    const len_meta_key: usize = mem::size_of::<MetaKey>();
-    const len_key: usize = MetaKey::len_meta_key - MetaKey::len_seq;
+    const LEN_SEQ: usize = mem::size_of::<u16>();
+    const LEN_META_KEY: usize = mem::size_of::<MetaKey>();
+    const LEN_KEY: usize = MetaKey::LEN_META_KEY - MetaKey::LEN_SEQ;
 
     #[inline]
     pub fn read(bytes: &[u8]) -> Option<&MetaKey> {
-        let t = &bytes[..MetaKey::len_meta_key];
-        if t.eq(&[0u8; MetaKey::len_meta_key]) {
+        let t = &bytes[..MetaKey::LEN_META_KEY];
+        if t.eq(&[0u8; MetaKey::LEN_META_KEY]) {
             None
         } else {
             Some(unsafe { &*(t.as_ptr() as *const MetaKey) })
@@ -131,8 +131,8 @@ impl MetaKey {
 
     #[inline]
     pub fn read_mut(bytes: &[u8]) -> Option<&mut MetaKey> {
-        let t = &bytes[..MetaKey::len_meta_key];
-        if t.eq(&[0u8; MetaKey::len_meta_key]) {
+        let t = &bytes[..MetaKey::LEN_META_KEY];
+        if t.eq(&[0u8; MetaKey::LEN_META_KEY]) {
             None
         } else {
             Some(unsafe { &mut *(t.as_ptr() as *mut MetaKey) })
@@ -143,16 +143,16 @@ impl MetaKey {
     pub fn write(bytes: &mut [u8], value: &Option<&MetaKey>) {
         match value {
             None => unsafe {
-                bytes.as_mut_ptr().write_bytes(0u8, MetaKey::len_meta_key);
+                bytes.as_mut_ptr().write_bytes(0u8, MetaKey::LEN_META_KEY);
             },
             Some(m) => {
-                bytes[..MetaKey::len_meta_key].copy_from_slice(m.as_ref());
+                bytes[..MetaKey::LEN_META_KEY].copy_from_slice(m.as_ref());
             }
         }
     }
 
     pub fn new() -> Self {
-        MetaKey([0; MetaKey::len_meta_key])
+        MetaKey([0; MetaKey::LEN_META_KEY])
     }
 
     pub fn new_add(&self) -> Self {
@@ -170,16 +170,16 @@ impl MetaKey {
     }
 
     pub fn sep(&self) -> u16 {
-        read_int(&self.0[MetaKey::len_key..])
+        read_int(&self.0[MetaKey::LEN_KEY..])
     }
 
     pub fn add_sep(&mut self, diff: u16) {
-        let old: u16 = read_int(&self.0[MetaKey::len_key..]);
-        write_int(&mut self.0[MetaKey::len_key..], old + diff);
+        let old: u16 = read_int(&self.0[MetaKey::LEN_KEY..]);
+        write_int(&mut self.0[MetaKey::LEN_KEY..], old + diff);
     }
 
     pub fn set_sep(&mut self, sep: u16) {
-        write_int(&mut self.0[MetaKey::len_key..], sep)
+        write_int(&mut self.0[MetaKey::LEN_KEY..], sep)
     }
 }
 
