@@ -3,6 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
+use ckb_rocksdb::ops::Delete;
 use ckb_rocksdb::prelude::Put;
 
 use crate::{BYTES_LEN_TYPE, LenType, MetaKey, read_len_type, RrError, write_len_type};
@@ -247,6 +248,27 @@ impl QuickList {
             tr.put(list_key.as_ref(), quick.as_ref())?;
         }
         Ok(result)
+    }
+
+    pub(crate) fn clear(&mut self, tr: &Transaction<TransactionDB>, list_key: &[u8]) -> Result<i32, RrError> {
+        let l = self.len_node();
+        let quick = self;
+
+        //从后面开始删除
+
+        let mut node_key = quick.right();
+        let mut node = QuickListNode::new();
+        while let Some(key) = node_key {
+            let key = key.clone();
+            node = QuickListNode::get(&tr, key.as_ref())?.ok_or(RrError::none_error("node"))?;
+            let value_key = node.values_key().ok_or(RrError::none_error("value key"))?;
+            tr.delete(value_key)?;
+            tr.delete(key)?;
+            node_key = node.left();
+        }
+        tr.delete(list_key)?;
+        tr.commit()?;
+        Ok(l as i32)
     }
 
     pub(crate) fn next_meta_key(&mut self) -> Option<MetaKey> {

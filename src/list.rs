@@ -21,7 +21,7 @@ pub trait RedisList {
 
     fn lpop<K: Bytes>(&mut self, key: K) -> Result<Vec<u8>, RrError>;
     /// 返回len of list
-    fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, RrError>;
+    fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: &V) -> Result<i32, RrError>;
 
     /// 返回len of list，如果list不存在返回值为 0
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, RrError>;
@@ -49,4 +49,7 @@ pub trait RedisList {
     fn rpush<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, RrError>;
     /// 为已经存在的列表添加值， 添加到尾部
     fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: K, value: V) -> Result<i32, RrError>;
+
+    /// 返回删除的元素个数
+    fn clear<K: Bytes>(&mut self, key: K) -> Result<i32, RrError>;
 }

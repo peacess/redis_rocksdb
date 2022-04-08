@@ -127,17 +127,17 @@ impl RedisList for RedisRocksdb {
         Ok(value)
     }
 
-    fn lpush<K: Bytes, V: Bytes>(&mut self, list_key: K, value: V) -> Result<i32, RrError> {
+    fn lpush<K: Bytes, V: Bytes>(&mut self, key: K, value: &V) -> Result<i32, RrError> {
         let tr = self.db.transaction_default();
-        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+        let mut quick = match QuickList::get(&self.db, key.as_ref())? {
             None => {
                 let mut q = QuickList::new();
-                q.init_meta_key(list_key.as_ref());
+                q.init_meta_key(key.as_ref());
                 q
             }
             Some(q) => q
         };
-        let re = quick.lpush(&tr, list_key.as_ref(), value.as_ref())?;
+        let re = quick.lpush(&tr, key.as_ref(), value.as_ref())?;
         tr.commit()?;
         Ok(re)
     }
@@ -378,5 +378,17 @@ impl RedisList for RedisRocksdb {
         let re = quick.rpush(&tr, list_key.as_ref(), value.as_ref())?;
         tr.commit()?;
         Ok(re)
+    }
+
+    fn clear<K: Bytes>(&mut self, list_key: K) -> Result<i32, RrError> {
+        let tr = self.db.transaction_default();
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
+            None => return Ok(0),
+            Some(q) => q
+        };
+        let re = quick.len_node();
+        quick.clear(&tr, list_key.as_ref());
+        tr.commit()?;
+        Ok(re as i32)
     }
 }
