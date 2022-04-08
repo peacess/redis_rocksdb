@@ -76,7 +76,6 @@ impl QuickList {
             {
                 let zip_key = quick.next_meta_key().ok_or(RrError::none_error("next_meta_key"))?;
                 let mut zip = ZipList::new();
-                zip.set_len(1);
                 zip.push_left(value.as_ref());
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
@@ -103,7 +102,6 @@ impl QuickList {
                 let new_node = {
                     let mut new_node = QuickListNode::new();
                     let mut zip = ZipList::new();
-                    zip.set_len(1);
                     zip.push_left(value.as_ref());
                     let zip_key = quick.next_meta_key().ok_or(RrError::message("next_meta_key return None".to_owned()))?;
                     tr.put(zip_key.as_ref(), zip.as_ref())?;
@@ -150,7 +148,6 @@ impl QuickList {
             {
                 let zip_key = quick.next_meta_key().ok_or(RrError::none_error("next_meta_key"))?;
                 let mut zip = ZipList::new();
-                zip.set_len(1);
                 zip.push_right(value.as_ref());
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
@@ -177,7 +174,6 @@ impl QuickList {
                 let new_node = {
                     let mut new_node = QuickListNode::new();
                     let mut zip = ZipList::new();
-                    zip.set_len(1);
                     zip.push_right(value.as_ref());
                     let zip_key = quick.next_meta_key().ok_or(RrError::message("next_meta_key return None".to_owned()))?;
                     tr.put(zip_key.as_ref(), zip.as_ref())?;

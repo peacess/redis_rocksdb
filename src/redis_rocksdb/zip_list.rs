@@ -147,7 +147,7 @@ impl ZipList {
         read_int(self.0.as_slice())
     }
 
-    pub fn set_len(&mut self, len: LenType) {
+    fn set_len(&mut self, len: LenType) {
         write_int(self.0.as_mut_slice(), len)
     }
 
@@ -166,15 +166,19 @@ impl ZipList {
         }
     }
 
-    pub fn pop_left(&mut self) -> Vec<u8> {
-        let len = self.len() - 1;
-        self.set_len(len);
+    pub fn pop_left(&mut self) -> Option<Vec<u8>> {
+        let len = self.len();
+        if len < 1 {
+            return None;
+        }
+        self.set_len(len - 1);
 
         let offset = ZipList::OFFSET_VALUE;
 
         let node = ZipListNode::from_start(&self.0[offset..]);
         if node.is_none() {
-            return vec![];
+            log::error!("inner error: the node is none");
+            panic!("inner error: the node is none");
         }
         let node = node.expect("");
         let pop_value = node.value().to_vec();
@@ -186,26 +190,30 @@ impl ZipList {
         }
         self.0.truncate(self.0.len() - size_node);
 
-        pop_value
+        Some(pop_value)
     }
 
     pub fn push_left(&mut self, value: &[u8]) {
         self.insert_left(0, value);
     }
 
-    pub fn pop_right(&mut self) -> Vec<u8> {
-        let len = self.len() - 1;
-        self.set_len(len);
+    pub fn pop_right(&mut self) -> Option<Vec<u8>> {
+        let len = self.len();
+        if len < 1 {
+            return None;
+        }
+        self.set_len(len - 1);
 
         let right = ZipListNode::from_end(&self.0[ZipList::OFFSET_VALUE..]);
         if right.is_none() {
-            return vec![];
+            log::error!("inner error: the node is none");
+            panic!("inner error: the node is none");
         }
         let right = right.expect("");
         let pop_value = right.value().to_vec();
         let offset = self.0.len() - right.bytes_of_node();
         self.0.truncate(offset);
-        pop_value
+        Some(pop_value)
     }
 
     pub fn push_right(&mut self, value: &[u8]) {

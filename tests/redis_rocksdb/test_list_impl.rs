@@ -6,7 +6,7 @@ use redis_rocksdb::{RedisList, RedisRocksdb, to_little_endian_array};
 
 #[test]
 fn test_list_lpush() {
-    let db_path = path::Path::new("temp/test_list_index.db");
+    let db_path = path::Path::new("temp/test_list_lpush.db");
     if !db_path.exists() {
         fs::create_dir_all(db_path).expect("");
     }
@@ -33,7 +33,7 @@ fn test_list_lpush() {
 
 #[test]
 fn test_list_rpush() {
-    let db_path = path::Path::new("temp/test_list_index.db");
+    let db_path = path::Path::new("temp/test_list_rpush.db");
     if !db_path.exists() {
         fs::create_dir_all(db_path).expect("");
     }
@@ -56,4 +56,53 @@ fn test_list_rpush() {
 
     let get_value = redis_db.lindex(&key, 0).expect("");
     assert_eq!(value, get_value);
+}
+
+#[test]
+fn test_list_lr_pop() {
+    let db_path = path::Path::new("temp/test_list_lr_pop.db");
+    if !db_path.exists() {
+        fs::create_dir_all(db_path).expect("");
+    }
+    let db = ckb_rocksdb::TransactionDB::open_default(db_path).expect("");
+    let mut redis_db = RedisRocksdb::new(db);
+    let key = "test_list_lr_pop".as_bytes();
+    let value = vec![1];
+    redis_db.clear(&key);//先清除数据，以便测试可以反复运行
+
+    let re = redis_db.lpop(&key);
+    assert_eq!(None, re.expect(""));
+    let re = redis_db.rpop(&key);
+    assert_eq!(None, re.expect(""));
+
+    redis_db.rpush(&key, &value);
+    let re = redis_db.lpop(&key);
+    assert_eq!(Some(value.clone()), re.expect(""));
+    let re = redis_db.rpop(&key);
+    assert_eq!(None, re.expect(""));
+    redis_db.rpush(&key, &value);
+    let re = redis_db.rpop(&key);
+    assert_eq!(Some(value.clone()), re.expect(""));
+    let re = redis_db.lpop(&key);
+    assert_eq!(None, re.expect(""));
+
+    redis_db.rpush(&key, &value);
+    let value2 = vec![2, 9];
+    redis_db.rpush(&key, &value2);
+    let re = redis_db.rpop(&key);
+    assert_eq!(Some(value2.clone()), re.expect(""));
+    let get_value = redis_db.lindex(&key, 0).expect("");
+    assert_eq!(value, get_value);
+    let re = redis_db.lpop(&key);
+    assert_eq!(Some(value.clone()), re.expect(""));
+
+    redis_db.rpush(&key, &value);
+    let value2 = vec![2, 9];
+    redis_db.rpush(&key, &value2);
+    let re = redis_db.lpop(&key);
+    assert_eq!(Some(value.clone()), re.expect(""));
+    let get_value = redis_db.lindex(&key, 0).expect("");
+    assert_eq!(value2, get_value);
+    let re = redis_db.rpop(&key);
+    assert_eq!(Some(value2.clone()), re.expect(""));
 }

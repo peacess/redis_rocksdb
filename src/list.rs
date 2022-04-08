@@ -19,7 +19,7 @@ pub trait RedisList {
     // 返回值为-1表示还没有这个list
     fn llen<K: Bytes>(&self, key: &K) -> Result<i32, RrError>;
 
-    fn lpop<K: Bytes>(&mut self, key: &K) -> Result<Vec<u8>, RrError>;
+    fn lpop<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<u8>>, RrError>;
     /// 返回len of list
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
 
@@ -42,7 +42,7 @@ pub trait RedisList {
 
     fn lset<K: Bytes, V: Bytes>(&mut self, key: &K, index: i32, value: &V);
     /// 移除列表的最后一个元素
-    fn rpop<K: Bytes>(&mut self, key: &K) -> Result<Vec<u8>, RrError>;
+    fn rpop<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<u8>>, RrError>;
     /// 移除列表的最后一个元素，并将该元素添加到另一个列表并返回
     fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: &K, dstkey: &K) -> Result<V, RrError>;
     /// 添加到列表尾部
