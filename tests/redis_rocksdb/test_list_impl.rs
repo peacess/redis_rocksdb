@@ -108,3 +108,88 @@ fn test_list_lr_pop() {
     let re = redis_db.rpop(&key);
     assert_eq!(Some(value2.clone()), re.expect(""));
 }
+
+#[named]
+#[test]
+fn test_list_insert_set_rem_range() {
+    let db = open_db(function_name!());
+    let mut redis_db = RedisRocksdb::new(db);
+    let key = function_name!().as_bytes();
+    let value = vec![1, 23, 6];
+    let _ = redis_db.clear(&key);//先清除数据，以便测试可以反复运行
+
+    {//list不存在时
+        let re = redis_db.lset(&key, 0, &value);
+        assert!(re.is_err());
+        let re = redis_db.lset(&key, 1, &value);
+        assert!(re.is_err());
+        let re = redis_db.lrem(&key, 0, &value);
+        assert_eq!(0, re.expect(""));
+        let re = redis_db.lrem(&key, 1, &value);
+        assert_eq!(0, re.expect(""));
+        let re = redis_db.lrem(&key, -1, &value);
+        assert_eq!(0, re.expect(""));
+
+
+        let re = redis_db.linsert_after(&key, &value, &value);
+        assert_eq!(0, re.expect(""));
+        let re = redis_db.linsert_before(&key, &value, &value);
+        assert_eq!(0, re.expect(""));
+
+        let re = redis_db.lrange(&key, 0, 0);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+        let re = redis_db.lrange(&key, 0, 1);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+        let re = redis_db.lrange(&key, 0, -1);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+
+        let re = redis_db.lrange(&key, -1, 0);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+        let re = redis_db.lrange(&key, -1, 1);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+        let re = redis_db.lrange(&key, -1, -1);
+        assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
+    }
+
+    let value2 = vec![7, 8];
+    {//list中有元素时
+        let _ = redis_db.lpush(&key, &value);
+
+        let re = redis_db.lset(&key, 1, &value);
+        assert!(re.is_err());
+        let re = redis_db.lset(&key, 0, &value2);
+        assert_eq!(value, re.expect(""));
+        assert_eq!(1, redis_db.llen(&key).expect(""));
+        assert_eq!(vec![value2.clone()], redis_db.lrange(&key, 0, 0).expect(""));
+
+        let re = redis_db.lset(&key, 0, &value);
+        assert_eq!(value2, re.expect(""));
+
+        //找不到给定的值，返回-1
+        let re = redis_db.linsert_after(&key, &value2, &value);
+        assert_eq!(-1, re.expect(""));
+        let re = redis_db.linsert_before(&key, &value2, &value);
+        assert_eq!(-1, re.expect(""));
+
+        let re = redis_db.linsert_after(&key, &value, &value2);
+        assert_eq!(2, re.expect(""));
+        assert_eq!(2, redis_db.llen(&key).expect(""));
+        let re = redis_db.linsert_after(&key, &value, &value2);
+        assert_eq!(3, re.expect(""));
+        assert_eq!(3, redis_db.llen(&key).expect(""));
+
+        let re = redis_db.lrem(&key, 0, &value2);//把value2删除，只剩一个元素
+        assert_eq!(2, re.expect(""));
+        assert_eq!(1, redis_db.llen(&key).expect(""));
+
+        let re = redis_db.linsert_before(&key, &value, &value2);
+        assert_eq!(2, re.expect(""));
+        assert_eq!(2, redis_db.llen(&key).expect(""));
+        let re = redis_db.linsert_before(&key, &value, &value2);
+        assert_eq!(3, re.expect(""));
+        assert_eq!(3, redis_db.llen(&key).expect(""));
+        let re = redis_db.linsert_before(&key, &value2, &value);
+        assert_eq!(4, re.expect(""));
+        assert_eq!(4, redis_db.llen(&key).expect(""));
+    }
+}

@@ -23,6 +23,9 @@ pub trait RedisList {
     /// 返回len of list
     fn lpush<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
 
+    // /// 返回len of list
+    // fn lpushs<K: Bytes, V: Bytes>(&mut self, key: &K, values: &[&V]) -> Result<i32, RrError>;
+
     /// 返回len of list，如果list不存在返回值为 0
     fn lpush_exists<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
     /// 返回在range范围内的元素，所以start与stop可能会在list的下标之外。range是包含stop的
@@ -40,16 +43,19 @@ pub trait RedisList {
     /// 保留指定区间内的元素，不在指定区间之内的元素都将被删除, 反回删除的元素数量
     fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, RrError>;
 
-    fn lset<K: Bytes, V: Bytes>(&mut self, key: &K, index: i32, value: &V);
+    /// index无效或list为空时，返回错误。其余返回原来的值
+    fn lset<K: Bytes, V: Bytes>(&mut self, key: &K, index: i32, value: &V) -> Result<Vec<u8>, RrError>;
     /// 移除列表的最后一个元素
     fn rpop<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<u8>>, RrError>;
     /// 移除列表的最后一个元素，并将该元素添加到另一个列表并返回
     fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: &K, dstkey: &K) -> Result<V, RrError>;
-    /// 添加到列表尾部
+    /// 返回len of list
     fn rpush<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
+    // /// 返回len of list
+    // fn rpushs<K: Bytes, V: Bytes>(&mut self, key: &K, value: &[&V]) -> Result<i32, RrError>;
     /// 为已经存在的列表添加值， 添加到尾部
     fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
 
-    /// 返回删除的元素个数
+    /// 返回len of list
     fn clear<K: Bytes>(&mut self, key: &K) -> Result<i32, RrError>;
 }
