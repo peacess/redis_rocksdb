@@ -478,12 +478,12 @@ impl ZipList {
         let mut start_in_index = 0usize;
         let mut stop_in_index = 0usize;
 
-        if start_index >= len + offset || stop_index <= offset {
+        if start_index >= len + offset || stop_index < offset {
             return None;
         }
 
         start_in_index = start_index - offset;
-        stop_in_index = start_in_index + (stop_index - start_index) + 1;
+        stop_in_index = start_in_index + (stop_index - start_index);
         if stop_in_index >= len {
             stop_in_index = len - 1;
         }
