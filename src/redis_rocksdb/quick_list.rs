@@ -336,6 +336,58 @@ impl QuickList {
     pub fn set_right(&mut self, meta_key: &Option<&MetaKey>) {
         MetaKey::write(&mut self.0[QuickList::OFFSET_RIGHT..], meta_key)
     }
+
+    //////
+    pub(crate) fn modify_node(&mut self, tr: &Transaction<TransactionDB>, list_key: &[u8], zip_key: &[u8], zip: &mut ZipList, node_key: &[u8], node: &mut QuickListNode) -> Result<(), RrError> {
+        let quick = self;
+        if zip.len() == 0 {
+            //删除当前node
+            tr.delete(zip_key)?;
+
+            let left = node.left();
+            let right = node.right();
+
+            match (left, right) {
+                (None, None) => {
+                    //都没有数据，清空list
+                    tr.delete(&node_key)?;
+                    quick.set_left(&None);
+                    quick.set_right(&None);
+                    quick.set_len_node(0);
+                    quick.set_len_list(0);
+                    tr.put(list_key, quick.as_ref())?;
+                }
+                (Some(left_key), None) => {
+                    let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
+                    left_node.set_right(&None);
+                    tr.delete(node_key)?;
+                    tr.put(&list_key, &left_node)?;
+                }
+                (Some(left_key), Some(right_key)) => {
+                    let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
+                    let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
+                    left_node.set_right(&Some(right_key));
+                    right_node.set_right(&Some(left_key));
+                    tr.delete(node_key)?;
+                    tr.put(left_key, &left_node)?;
+                    tr.put(right_key, &right_node)?;
+                }
+                (None, Some(right_key)) => {
+                    let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
+                    right_node.set_left(&None);
+                    //todo quick 的right是否要处理
+                    quick.set_left(&Some(right_key));
+                }
+            }
+        } else {
+            node.set_len_list(zip.len());
+            node.set_len_bytes(zip.as_ref().len() as LenType);
+            tr.put(zip_key, &zip)?;
+            tr.put(&node_key, &node)?;
+        }
+
+        Ok(())
+    }
 }
 
 

@@ -9,14 +9,14 @@ use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, read_int, RrError, write_int}
 /// ```rust
 /// use redis_rocksdb::{LenType, MetaKey};
 ///
-/// struct ZipList{
+/// struct ZipList<'a>{
 ///     len: LenType,
-///     values: [ZipListNode],
+///     values: &'a[ZipListNode<'a>],
 /// }
 ///
-/// struct ZipListNode{
+/// struct ZipListNode<'a>{
 ///     left_size_node: u16,
-///     value: [u8],
+///     value: &'a[u8],
 ///     right_size_node: u16,
 /// }
 ///
@@ -628,14 +628,14 @@ mod test {
         let mut zip = ZipList::new();
         zip.push_left(&[1]);
 
-        let v = zip.pop_left();
+        let v = zip.pop_left().expect("");
         assert_eq!(&[1], v.as_slice());
         assert_eq!(0, zip.len());
         assert_eq!(&[0, 0, 0, 0], zip.0.as_slice());
 
         zip.push_left(&[1]);
         zip.push_right(&[2, 3]);
-        let v = zip.pop_left();
+        let v = zip.pop_left().expect("");
         assert_eq!(&[1], v.as_slice());
         assert_eq!(1, zip.len());
         assert_eq!(&[1, 0, 0, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
@@ -646,14 +646,14 @@ mod test {
         let mut zip = ZipList::new();
         zip.push_right(&[1]);
 
-        let v = zip.pop_right();
+        let v = zip.pop_right().expect("");
         assert_eq!(&[1], v.as_slice());
         assert_eq!(0, zip.len());
         assert_eq!(&[0, 0, 0, 0], zip.0.as_slice());
 
         zip.push_right(&[1]);
         zip.push_right(&[2, 3]);
-        let v = zip.pop_right();
+        let v = zip.pop_right().expect("");
         assert_eq!(&[2, 3], v.as_slice());
         assert_eq!(1, zip.len());
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());

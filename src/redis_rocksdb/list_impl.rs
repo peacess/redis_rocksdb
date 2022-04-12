@@ -208,8 +208,8 @@ impl RedisList for RedisRocksdb {
         Ok(result)
     }
 
-    fn lrem<K: Bytes, V: Bytes>(&mut self, key: &K, count: i32, value: &V) -> Result<LenType, RrError> {
-        let mut quick = match QuickList::get(&self.db, key.as_ref())? {
+    fn lrem<K: Bytes, V: Bytes>(&mut self, list_key: &K, count: i32, value: &V) -> Result<LenType, RrError> {
+        let mut quick = match QuickList::get(&self.db, list_key.as_ref())? {
             None => return Ok(0),
             Some(q) => q
         };
@@ -231,48 +231,7 @@ impl RedisList for RedisRocksdb {
                 rem_count += done;
 
                 if done != 0 {
-                    if zip.len() == 0 {
-                        //删除当前node
-                        tr.delete(zip_key)?;
-
-                        let left = node.left();
-                        let right = node.right();
-
-                        match (left, right) {
-                            (None, None) => {
-                                //都没有数据，删除整个 list
-                                tr.delete(&node_key)?;
-                                tr.delete(&key)?;
-                            }
-                            (Some(left_key), None) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
-                                left_node.set_right(&None);
-                                tr.delete(node_key)?;
-                                tr.put(&key, &left_node)?;
-                            }
-                            (Some(left_key), Some(right_key)) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
-                                left_node.set_right(&Some(right_key));
-                                right_node.set_right(&Some(left_key));
-                                tr.delete(node_key)?;
-                                tr.put(left_key, &left_node)?;
-                                tr.put(right_key, &right_node)?;
-                            }
-                            (None, Some(right_key)) => {
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
-                                right_node.set_left(&None);
-                                //todo quick 的right是否要处理
-                                quick.set_left(&Some(right_key));
-                            }
-                        }
-                    } else {
-                        node.set_len_list(zip.len());
-                        node.set_len_bytes(zip.as_ref().len() as LenType);
-
-                        tr.put(zip_key, &zip)?;
-                        tr.put(&node_key, &node)?;
-                    }
+                    quick.modify_node(&tr, list_key.as_ref(), zip_key.as_ref(), &mut zip, node_key.as_ref(), &mut node)?;
                 }
 
                 if rem_count == count as u32 {
@@ -287,6 +246,31 @@ impl RedisList for RedisRocksdb {
             }
         } else if count < 0 { //反向遍历
             let count = count.abs() as usize;
+            let mut node_key = quick.right().ok_or(RrError::none_error("left key"))?.clone();
+            let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("node"))?;
+
+            loop {
+                let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?.clone();
+                let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip"))?;
+
+                let mut will_count = count as i32 - rem_count as i32;
+                let done = zip.rem(-will_count, value.as_ref());
+                rem_count += done;
+
+                if done != 0 {
+                    quick.modify_node(&tr, list_key.as_ref(), zip_key.as_ref(), &mut zip, node_key.as_ref(), &mut node)?;
+                }
+
+                if rem_count == count as u32 {
+                    break;
+                }
+                if let Some(t) = node.left() {
+                    node_key = t.clone();
+                } else {
+                    break;
+                }
+                node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
+            }
         } else { //正向删除所有相等的值
             let count = count as usize;
             let mut node_key = quick.left().ok_or(RrError::none_error("left key"))?.clone();
@@ -300,48 +284,7 @@ impl RedisList for RedisRocksdb {
                 rem_count += done;
 
                 if done != 0 {
-                    if zip.len() == 0 {
-                        //删除当前node
-                        tr.delete(zip_key)?;
-
-                        let left = node.left();
-                        let right = node.right();
-
-                        match (left, right) {
-                            (None, None) => {
-                                //都没有数据，删除整个 list
-                                tr.delete(&node_key)?;
-                                tr.delete(&key)?;
-                            }
-                            (Some(left_key), None) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
-                                left_node.set_right(&None);
-                                tr.delete(node_key)?;
-                                tr.put(&key, &left_node)?;
-                            }
-                            (Some(left_key), Some(right_key)) => {
-                                let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
-                                left_node.set_right(&Some(right_key));
-                                right_node.set_right(&Some(left_key));
-                                tr.delete(node_key)?;
-                                tr.put(left_key, &left_node)?;
-                                tr.put(right_key, &right_node)?;
-                            }
-                            (None, Some(right_key)) => {
-                                let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?.ok_or(RrError::none_error("right node"))?;
-                                right_node.set_left(&None);
-                                //todo quick 的right是否要处理
-                                quick.set_left(&Some(right_key));
-                            }
-                        }
-                    } else {
-                        node.set_len_list(zip.len());
-                        node.set_len_bytes(zip.as_ref().len() as LenType);
-
-                        tr.put(zip_key, &zip)?;
-                        tr.put(&node_key, &node)?;
-                    }
+                    quick.modify_node(&tr, list_key.as_ref(), zip_key.as_ref(), &mut zip, node_key.as_ref(), &mut node)?;
                 }
                 if let Some(t) = node.right() {
                     node_key = t.clone();
@@ -355,7 +298,7 @@ impl RedisList for RedisRocksdb {
 
         if rem_count > 0 {
             quick.set_len_list(quick.len_list() - rem_count);
-            tr.put(key, quick)?;
+            tr.put(list_key, quick)?;
         }
 
         tr.commit()?;
