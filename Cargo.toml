@@ -1,6 +1,6 @@
 [package]
 name = "redis_rocksdb"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Peace <peacess@163.com>"]
 exclude = [".gitignore"]
