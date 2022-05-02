@@ -8,6 +8,11 @@ rust implement structure kv(key/value) embedded database, storage by rocksdb
 
 
 ```
+# Install
+## Window
+1. install llvm
+2. Environment value: set LIBCLANG_PATH=E:/lang/LLVM/lib  --- sometimes need to restart the window system for clion
+3. 
 
 # See:
 
