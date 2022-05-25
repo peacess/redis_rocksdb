@@ -598,7 +598,7 @@ impl<'a> Iterator for ZipListIter<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::redis_rocksdb::zip_list::{ZipList, ZipListIter};
+    use crate::rocksdb_impl::zip_list::{ZipList, ZipListIter};
 
     #[test]
     fn test_zip_list_push_left() {

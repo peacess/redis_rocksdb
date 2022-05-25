@@ -7,8 +7,8 @@ use ckb_rocksdb::ops::Delete;
 use ckb_rocksdb::prelude::Put;
 
 use crate::{BYTES_LEN_TYPE, LenType, MetaKey, read_len_type, RrError, write_len_type};
-use crate::redis_rocksdb::quick_list_node::QuickListNode;
-use crate::redis_rocksdb::zip_list::ZipList;
+use crate::rocksdb_impl::quick_list_node::QuickListNode;
+use crate::rocksdb_impl::zip_list::ZipList;
 
 struct _QuickList {
     /// node的len
