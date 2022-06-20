@@ -15,13 +15,15 @@ license = "Apache-2.0"
 name = "redis_rocksdb"
 path = "src/lib.rs"
 
+[features]
+default = ["u32"]
+u32 = []
+
 [dependencies]
 log = "0.4.17"
-anyhow = "1.0.57"
-ckb-rocksdb = "0.18.0"
+anyhow = "1.0.58"
+ckb-rocksdb = "0.18.1"
+
 #rocksdb = { version = "0.18.0", features = ["multi-threaded-cf"] }
-
 [dev-dependencies]
-function_name = "0.2.0"
-
-
+function_name = "0.3.0"

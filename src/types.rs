@@ -4,9 +4,7 @@ use std::fmt::{Display, Formatter};
 
 pub trait Bytes: AsRef<[u8]> {}
 
-impl Bytes for &[u8] {}
-
-impl Bytes for Vec<u8> {}
+impl<T: AsRef<[u8]>> Bytes for T {}
 
 /// Enum for the LEFT | RIGHT args used by some commands
 pub enum Direction {
@@ -14,7 +12,17 @@ pub enum Direction {
     Right,
 }
 
+#[cfg(feature = "u32")]
 pub type LenType = u32;
+
+#[cfg(feature = "u32")]
+pub type RtType = i32;
+
+#[cfg(not(feature = "u32"))]
+pub type LenType = u64;
+
+#[cfg(not(feature = "u32"))]
+pub type RtType = i64;
 
 pub const BYTES_LEN_TYPE: usize = mem::size_of::<LenType>();
 
@@ -69,6 +77,8 @@ impl_endian_scalar_stdlib_le_conversion!(u64);
 impl_endian_scalar_stdlib_le_conversion!(i16);
 impl_endian_scalar_stdlib_le_conversion!(i32);
 impl_endian_scalar_stdlib_le_conversion!(i64);
+impl_endian_scalar_stdlib_le_conversion!(usize);
+impl_endian_scalar_stdlib_le_conversion!(isize);
 
 pub fn read_int<T: EndianScalar>(bytes: &[u8]) -> T {
     let mut mem = core::mem::MaybeUninit::<T>::uninit();
@@ -154,7 +164,7 @@ impl MetaKey {
     }
 
     pub fn new_add(&self) -> Self {
-        let mut n = MetaKey(self.0.clone());
+        let mut n = MetaKey(self.0);
         n.add_sep(1);
         n
     }

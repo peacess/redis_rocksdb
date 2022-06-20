@@ -4,7 +4,7 @@ _DIR=$(dirname $(realpath "$0"))
 
 cd $_DIR
 
-#. ./sh/pid.sh
+. ./sh/pid.sh
 
 set -ex
 
@@ -19,4 +19,4 @@ RUST_BACKTRACE=1 watchexec \
   --shell=none -w . \
   -c -r --exts rs,toml \
   --ignore target/ \
-  -- cargo +nightly test
+  -- "cargo +nightly test"

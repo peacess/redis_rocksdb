@@ -213,7 +213,7 @@ fn test_list_insert_set_rem_range() {
             vec![value.clone(), value3.clone(), value2.clone()],
             redis_db.lrange(&key, 0, -1).expect("")
         );
-        let re = redis_db.lrange(&key, 0, 0).expect("").clone();
+        let re = redis_db.lrange(&key, 0, 0).expect("");
         assert_eq!(vec![value.clone()], re);
         assert_eq!(
             vec![value2.clone()],

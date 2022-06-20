@@ -8,7 +8,7 @@ use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
 
 use crate::rocksdb_impl::quick_list_node::QuickListNode;
 use crate::rocksdb_impl::zip_list::ZipList;
-use crate::{read_len_type, write_len_type, LenType, MetaKey, RrError, BYTES_LEN_TYPE};
+use crate::{read_len_type, write_len_type, LenType, MetaKey, RrError, RtType, BYTES_LEN_TYPE};
 
 struct _QuickList {
     /// node的len
@@ -82,7 +82,7 @@ impl QuickList {
         tr: &Transaction<TransactionDB>,
         list_key: &[u8],
         value: &[u8],
-    ) -> Result<i32, RrError> {
+    ) -> Result<RtType, RrError> {
         let quick = self;
         if quick.len_node() == 0 {
             //可能是第一次创建，也可能是删除后，没有数据了
@@ -99,7 +99,7 @@ impl QuickList {
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
                 node.set_len_list(1);
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as _);
                 node.set_values_key(&Some(&zip_key));
             }
             tr.put(node_key.as_ref(), node.as_ref())?;
@@ -115,7 +115,7 @@ impl QuickList {
                 .ok_or(RrError::message("quick.left() return None".to_owned()))?
                 .clone();
 
-            let mut node = QuickListNode::get(&tr, node_key.as_ref())?
+            let mut node = QuickListNode::get(tr, node_key.as_ref())?
                 .ok_or(RrError::message("quick.left() return None".to_owned()))?;
 
             // zip中的元素过多，或内存过大，都会新增加node
@@ -156,12 +156,12 @@ impl QuickList {
                     .values_key()
                     .ok_or(RrError::none_error("values_key"))?
                     .clone();
-                let mut zip = ZipList::get(&tr, zip_key.as_ref())?
+                let mut zip = ZipList::get(tr, zip_key.as_ref())?
                     .ok_or(RrError::none_error("ZipList::get"))?;
                 zip.push_left(value.as_ref());
 
                 node.set_len_list(zip.len());
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as _);
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
                 tr.put(node_key.as_ref(), node.as_ref())?;
 
@@ -169,7 +169,7 @@ impl QuickList {
                 tr.put(list_key.as_ref(), quick.as_ref())?;
             }
         }
-        Ok(quick.len_list() as i32)
+        Ok(quick.len_list() as RtType)
     }
 
     pub(crate) fn rpush(
@@ -177,7 +177,7 @@ impl QuickList {
         tr: &Transaction<TransactionDB>,
         list_key: &[u8],
         value: &[u8],
-    ) -> Result<i32, RrError> {
+    ) -> Result<RtType, RrError> {
         let quick = self;
         if quick.len_node() == 0 {
             //可能是第一次创建，也可能是删除后，没有数据了
@@ -194,7 +194,7 @@ impl QuickList {
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
                 node.set_len_list(1);
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as _);
                 node.set_values_key(&Some(&zip_key));
             }
             tr.put(node_key.as_ref(), node.as_ref())?;
@@ -210,7 +210,7 @@ impl QuickList {
                 .ok_or(RrError::message("quick.right() return None".to_owned()))?
                 .clone();
 
-            let mut node = QuickListNode::get(&tr, node_key.as_ref())?
+            let mut node = QuickListNode::get(tr, node_key.as_ref())?
                 .ok_or(RrError::message("quick.right() return None".to_owned()))?;
 
             // zip中的元素过多，或内存过大，都会新增加node
@@ -251,12 +251,12 @@ impl QuickList {
                     .values_key()
                     .ok_or(RrError::none_error("values_key"))?
                     .clone();
-                let mut zip = ZipList::get(&tr, zip_key.as_ref())?
+                let mut zip = ZipList::get(tr, zip_key.as_ref())?
                     .ok_or(RrError::none_error("ZipList::get"))?;
                 zip.push_right(value.as_ref());
 
                 node.set_len_list(zip.len());
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as _);
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
                 tr.put(node_key.as_ref(), node.as_ref())?;
 
@@ -264,7 +264,7 @@ impl QuickList {
                 tr.put(list_key.as_ref(), quick.as_ref())?;
             }
         }
-        Ok(quick.len_list() as i32)
+        Ok(quick.len_list() as RtType)
     }
 
     pub(crate) fn list_insert(
@@ -273,18 +273,18 @@ impl QuickList {
         list_key: &[u8],
         pivot: &[u8],
         value: &[u8],
-        f: fn(&mut ZipList, &[u8], &[u8]) -> Option<i32>,
-    ) -> Result<i32, RrError> {
+        f: fn(&mut ZipList, &[u8], &[u8]) -> Option<RtType>,
+    ) -> Result<RtType, RrError> {
         let quick = self;
         let mut node_key = quick.left().ok_or(RrError::none_error("left key"))?.clone();
         let mut node =
-            QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
+            QuickListNode::get(tr, node_key.as_ref())?.ok_or(RrError::none_error("left node"))?;
 
         let (zip, zip_key) = loop {
             let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?;
             let mut zip =
-                ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip list"))?;
-            let t = f(&mut zip, pivot.as_ref(), value.as_ref());
+                ZipList::get(tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip list"))?;
+            let t = f(&mut zip, pivot, value);
             if t.is_some() {
                 break (Some(zip), zip_key.clone());
             }
@@ -292,7 +292,7 @@ impl QuickList {
                 None => break (None, zip_key.clone()), //双向链表完成
                 Some(t) => {
                     node_key = t.clone();
-                    node = QuickListNode::get(&tr, node_key.as_ref())?
+                    node = QuickListNode::get(tr, node_key.as_ref())?
                         .ok_or(RrError::none_error("right node"))?;
                 }
             }
@@ -302,7 +302,7 @@ impl QuickList {
             node.set_len_list(zip.len());
             node.set_len_bytes(zip.as_ref().len() as LenType);
             quick.set_len_list(quick.len_list() + 1);
-            result = quick.len_list() as i32;
+            result = quick.len_list() as RtType;
 
             tr.put(zip_key, zip.as_ref())?;
             tr.put(node_key.as_ref(), node.as_ref())?;
@@ -315,7 +315,7 @@ impl QuickList {
         &mut self,
         tr: &Transaction<TransactionDB>,
         list_key: &[u8],
-    ) -> Result<i32, RrError> {
+    ) -> Result<RtType, RrError> {
         let l = self.len_node();
         let quick = self;
 
@@ -325,7 +325,7 @@ impl QuickList {
         let mut node;
         while let Some(key) = node_key {
             let key = key.clone();
-            node = QuickListNode::get(&tr, key.as_ref())?.ok_or(RrError::none_error("node"))?;
+            node = QuickListNode::get(tr, key.as_ref())?.ok_or(RrError::none_error("node"))?;
             let value_key = node.values_key().ok_or(RrError::none_error("value key"))?;
             tr.delete(value_key)?;
             tr.delete(key)?;
@@ -333,7 +333,7 @@ impl QuickList {
         }
         tr.delete(list_key)?;
         tr.commit()?;
-        Ok(l as i32)
+        Ok(l as RtType)
     }
 
     pub(crate) fn next_meta_key(&mut self) -> Option<MetaKey> {
@@ -434,16 +434,16 @@ impl QuickList {
                     tr.put(list_key, quick.as_ref())?;
                 }
                 (Some(left_key), None) => {
-                    let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?
+                    let mut left_node = QuickListNode::get(tr, left_key.as_ref())?
                         .ok_or(RrError::none_error("left node"))?;
                     left_node.set_right(&None);
                     tr.delete(node_key)?;
                     tr.put(&list_key, &left_node)?;
                 }
                 (Some(left_key), Some(right_key)) => {
-                    let mut left_node = QuickListNode::get(&tr, left_key.as_ref())?
+                    let mut left_node = QuickListNode::get(tr, left_key.as_ref())?
                         .ok_or(RrError::none_error("left node"))?;
-                    let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?
+                    let mut right_node = QuickListNode::get(tr, right_key.as_ref())?
                         .ok_or(RrError::none_error("right node"))?;
                     left_node.set_right(&Some(right_key));
                     right_node.set_right(&Some(left_key));
@@ -452,7 +452,7 @@ impl QuickList {
                     tr.put(right_key, &right_node)?;
                 }
                 (None, Some(right_key)) => {
-                    let mut right_node = QuickListNode::get(&tr, right_key.as_ref())?
+                    let mut right_node = QuickListNode::get(tr, right_key.as_ref())?
                         .ok_or(RrError::none_error("right node"))?;
                     right_node.set_left(&None);
                     //todo quick 的right是否要处理
