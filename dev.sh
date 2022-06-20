@@ -17,5 +17,6 @@ cargo build || true
 
 RUST_BACKTRACE=1 watchexec \
   -w src/ \
+  -w examples/ \
   -c -r --exts rs,toml \
-  -- "cargo +nightly run --example main"
+  -- "cargo +nightly test"
