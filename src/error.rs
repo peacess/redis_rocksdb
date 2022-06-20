@@ -13,8 +13,12 @@ impl RrError {
     pub(crate) fn message(message: String) -> RrError {
         RrError::Message(message)
     }
-    pub(crate) fn not_find(name: &str) -> RrError { RrError::Message(name.to_owned()) }
-    pub(crate) fn none_error(name: &str) -> RrError { RrError::Message(name.to_owned()) }
+    pub(crate) fn not_find(name: &str) -> RrError {
+        RrError::Message(name.to_owned())
+    }
+    pub(crate) fn none_error(name: &str) -> RrError {
+        RrError::Message(name.to_owned())
+    }
 }
 
 impl Display for RrError {

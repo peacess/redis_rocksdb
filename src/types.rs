@@ -28,7 +28,6 @@ pub fn write_len_type(bytes: &mut [u8], len: LenType) {
     write_int(bytes, len)
 }
 
-
 /// [see](https://github.com/google/flatbuffers/blob/master/rust/flatbuffers/src/endian_scalar.rs)
 /// Trait for values that must be stored in little-endian byte order, but
 /// might be represented in memory as big-endian. Every type that implements
@@ -44,7 +43,6 @@ pub trait EndianScalar: Sized + PartialEq + Copy + Clone {
     fn to_little_endian(self) -> Self;
     fn from_little_endian(self) -> Self;
 }
-
 
 /// Macro for implementing an endian conversion using the stdlib `to_le` and
 /// `from_le` functions. This is used for integer types. It is not used for
@@ -72,7 +70,6 @@ impl_endian_scalar_stdlib_le_conversion!(i16);
 impl_endian_scalar_stdlib_le_conversion!(i32);
 impl_endian_scalar_stdlib_le_conversion!(i64);
 
-
 pub fn read_int<T: EndianScalar>(bytes: &[u8]) -> T {
     let mut mem = core::mem::MaybeUninit::<T>::uninit();
     unsafe {
@@ -82,7 +79,8 @@ pub fn read_int<T: EndianScalar>(bytes: &[u8]) -> T {
             core::mem::size_of::<T>(),
         );
         mem.assume_init()
-    }.from_little_endian()
+    }
+    .from_little_endian()
 }
 
 pub fn write_int<T: EndianScalar>(bytes: &mut [u8], value: T) {
@@ -156,7 +154,7 @@ impl MetaKey {
     }
 
     pub fn new_add(&self) -> Self {
-        let mut n = MetaKey(self.0.clone());
+        let mut n = MetaKey(self.0);
         n.add_sep(1);
         n
     }
@@ -183,7 +181,6 @@ impl MetaKey {
     }
 }
 
-
 impl From<MetaKeyArray> for MetaKey {
     fn from(key: MetaKeyArray) -> Self {
         MetaKey(key)
@@ -201,5 +198,3 @@ impl Display for MetaKey {
         write!(f, "({}, {})", self.key(), self.sep())
     }
 }
-
-
