@@ -12,7 +12,7 @@ impl RedisRocksdb {
     }
 }
 
-pub fn open<Str: AsRef<str>>(fp: Str) -> Result<TransactionDB> {
+pub fn open<Str: AsRef<str>>(fp: Str) -> Result<RedisRocksdb> {
     let db_path = path::Path::new(fp.as_ref());
     if !db_path.exists() {
         fs::create_dir_all(db_path)?;
@@ -25,5 +25,7 @@ pub fn open<Str: AsRef<str>>(fp: Str) -> Result<TransactionDB> {
     opt.set_bottommost_compression_type(DBCompressionType::Zstd);
     //opt.set_enable_blob_files(true);
 
-    Ok(ckb_rocksdb::TransactionDB::open(&opt, db_path)?)
+    Ok(RedisRocksdb::new(ckb_rocksdb::TransactionDB::open(
+        &opt, db_path,
+    )?))
 }

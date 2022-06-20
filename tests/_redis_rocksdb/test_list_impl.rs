@@ -6,15 +6,14 @@ use function_name::named;
 
 use redis_rocksdb::{open, RedisList, RedisRocksdb};
 
-fn open_db(name: &str) -> TransactionDB {
+fn open_db(name: &str) -> RedisRocksdb {
     open(format!("temp/{}.db", name)).expect("")
 }
 
 #[named]
 #[test]
 fn test_list_lpush() {
-    let db = open_db(function_name!());
-    let mut redis_db = RedisRocksdb::new(db);
+    let mut redis_db = open_db(function_name!());
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
     let _ = redis_db.clear(&key); //先清除数据，以便测试可以反复运行
@@ -37,8 +36,7 @@ fn test_list_lpush() {
 #[named]
 #[test]
 fn test_list_rpush() {
-    let db = open_db(function_name!());
-    let mut redis_db = RedisRocksdb::new(db);
+    let mut redis_db = open_db(function_name!());
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
     let _ = redis_db.clear(&key); //先清除数据，以便测试可以反复运行
@@ -61,8 +59,7 @@ fn test_list_rpush() {
 #[named]
 #[test]
 fn test_list_lr_pop() {
-    let db = open_db(function_name!());
-    let mut redis_db = RedisRocksdb::new(db);
+    let mut redis_db = open_db(function_name!());
     let key = function_name!().as_bytes();
     let value = vec![1];
     let _ = redis_db.clear(&key); //先清除数据，以便测试可以反复运行
@@ -107,8 +104,7 @@ fn test_list_lr_pop() {
 #[named]
 #[test]
 fn test_list_insert_set_rem_range() {
-    let db = open_db(function_name!());
-    let mut redis_db = RedisRocksdb::new(db);
+    let mut redis_db = open_db(function_name!());
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
     let _ = redis_db.clear(&key); //先清除数据，以便测试可以反复运行
