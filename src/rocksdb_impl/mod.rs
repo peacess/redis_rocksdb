@@ -1,4 +1,4 @@
-pub use redis_rocksdb::RedisRocksdb;
+pub use crate::rocksdb_impl::redis_rocksdb::RedisRocksdb;
 
 mod key_value_impl;
 mod list_impl;
