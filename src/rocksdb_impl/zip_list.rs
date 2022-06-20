@@ -188,11 +188,7 @@ impl ZipList {
         let size_node = node.bytes_of_node();
         unsafe {
             let p = self.0.as_mut_ptr().add(offset);
-            ptr::copy(
-                p.add(size_node),
-                p,
-                self.0.len() - offset - size_node,
-            );
+            ptr::copy(p.add(size_node), p, self.0.len() - offset - size_node);
         }
         self.0.truncate(self.0.len() - size_node);
 
@@ -475,7 +471,6 @@ impl ZipList {
     }
 
     pub fn count_index(len: i32, index: i32) -> i32 {
-        
         {
             if index < 0 {
                 let mut index_ = len + index;
@@ -483,12 +478,10 @@ impl ZipList {
                     index_ = 0;
                 }
                 index_
+            } else if index >= len {
+                len - 1
             } else {
-                if index >= len {
-                    len - 1
-                } else {
-                    index
-                }
+                index
             }
         }
     }
@@ -627,7 +620,7 @@ impl<'a> Iterator for ZipListIter<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::rocksdb_impl::zip_list::{ZipList, ZipListIter};
+    use crate::rocksdb_impl::zip_list::ZipList;
 
     #[test]
     fn test_zip_list_push_left() {
