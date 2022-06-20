@@ -4,15 +4,10 @@ use ckb_rocksdb::prelude::Open;
 use ckb_rocksdb::TransactionDB;
 use function_name::named;
 
-use redis_rocksdb::{RedisList, RedisRocksdb};
+use redis_rocksdb::{open, RedisList, RedisRocksdb};
 
 fn open_db(name: &str) -> TransactionDB {
-    let file_name = format!("temp/{}.db", name);
-    let db_path = path::Path::new(&file_name);
-    if !db_path.exists() {
-        fs::create_dir_all(db_path).expect("");
-    }
-    ckb_rocksdb::TransactionDB::open_default(db_path).expect("")
+    open(format!("temp/{}.db", name)).expect("")
 }
 
 #[named]
