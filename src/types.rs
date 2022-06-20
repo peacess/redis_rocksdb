@@ -69,16 +69,12 @@ macro_rules! impl_endian_scalar_stdlib_le_conversion {
             }
         }
     };
+    ($($ty:ident),+) => {
+      $(impl_endian_scalar_stdlib_le_conversion!($ty);)+
+    }
 }
 
-impl_endian_scalar_stdlib_le_conversion!(u16);
-impl_endian_scalar_stdlib_le_conversion!(u32);
-impl_endian_scalar_stdlib_le_conversion!(u64);
-impl_endian_scalar_stdlib_le_conversion!(i16);
-impl_endian_scalar_stdlib_le_conversion!(i32);
-impl_endian_scalar_stdlib_le_conversion!(i64);
-impl_endian_scalar_stdlib_le_conversion!(usize);
-impl_endian_scalar_stdlib_le_conversion!(isize);
+impl_endian_scalar_stdlib_le_conversion!(u16, u32, u64, usize, i16, i32, i64, isize);
 
 pub fn read_int<T: EndianScalar>(bytes: &[u8]) -> T {
     let mut mem = core::mem::MaybeUninit::<T>::uninit();
