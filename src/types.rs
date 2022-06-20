@@ -154,7 +154,7 @@ impl MetaKey {
     }
 
     pub fn new_add(&self) -> Self {
-        let mut n = MetaKey(self.0.clone());
+        let mut n = MetaKey(self.0);
         n.add_sep(1);
         n
     }

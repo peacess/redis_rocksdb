@@ -75,7 +75,7 @@ impl<'a> ZipListNode<'a> {
             );
             ptr::copy_nonoverlapping(
                 value.as_ptr(),
-                p.offset(ZipListNode::SIZE_NODE_TYPE as isize),
+                p.add(ZipListNode::SIZE_NODE_TYPE),
                 value.len(),
             );
             ptr::copy_nonoverlapping(
@@ -187,9 +187,9 @@ impl ZipList {
 
         let size_node = node.bytes_of_node();
         unsafe {
-            let p = self.0.as_mut_ptr().offset(offset as isize);
+            let p = self.0.as_mut_ptr().add(offset);
             ptr::copy(
-                p.offset(size_node as isize),
+                p.add(size_node),
                 p,
                 self.0.len() - offset - size_node,
             );
@@ -250,7 +250,7 @@ impl ZipList {
                 index + 1
             }
         };
-        return self.insert_left(left_index, value);
+        self.insert_left(left_index, value)
     }
 
     /// 没有找到pivot 返回None
@@ -296,15 +296,13 @@ impl ZipList {
         let offset = self.get_offset_index(index as usize);
         if let Some(offset) = offset {
             let node = ZipListNode::from_start(&self.0[offset..]);
-            if node.is_none() {
-                return None;
-            }
+            node.as_ref()?;
             let node = node.expect("");
             let old_value = node.value().to_vec();
             let old_bytes_value = node.bytes_of_value();
             let old_bytes_node = node.bytes_of_node();
 
-            let mut p = unsafe { self.0.as_mut_ptr().offset(offset as isize) };
+            let mut p = unsafe { self.0.as_mut_ptr().add(offset) };
             //这里一定要使用isize,因为可能为负数
             let diff: isize = value.len() as isize - (old_bytes_value as isize);
             if diff == 0 {
@@ -314,11 +312,11 @@ impl ZipList {
                     self.0.reserve(diff as usize);
                     self.0.set_len(self.0.len() + diff as usize);
                     //重新计算p的位置，当vec大小变化后，内存可能会变化
-                    p = self.0.as_mut_ptr().offset(offset as isize);
+                    p = self.0.as_mut_ptr().add(offset);
                     let count = self.0.len() - diff as usize - offset - old_bytes_node;
                     if count > 0 {
                         ptr::copy(
-                            p.offset(old_bytes_node as isize),
+                            p.add(old_bytes_node),
                             p.offset(old_bytes_node as isize + diff as isize),
                             count,
                         );
@@ -327,21 +325,21 @@ impl ZipList {
             } else if diff < 0 {
                 unsafe {
                     ptr::copy(
-                        p.offset(old_bytes_node as isize),
+                        p.add(old_bytes_node),
                         p.offset(old_bytes_node as isize - diff.abs()),
                         self.0.len() - offset,
                     );
                 }
-                self.0.truncate(self.0.len() - diff.abs() as usize);
+                self.0.truncate(self.0.len() - diff.unsigned_abs());
                 unsafe {
-                    p = self.0.as_mut_ptr().offset(offset as isize);
+                    p = self.0.as_mut_ptr().add(offset);
                 }
             }
 
             ZipListNode::write_value(value, p);
             Some(old_value)
         } else {
-            return None;
+            None
         }
     }
 
@@ -375,7 +373,7 @@ impl ZipList {
                         let next_offset = it.next_offset();
                         if let Some(offset) = next_offset {
                             removes.push((it.offset() as isize, (offset) as isize));
-                            if removes.len() >= count.abs() as usize {
+                            if removes.len() >= count.unsigned_abs() as usize {
                                 break;
                             }
                         } else {
@@ -407,7 +405,7 @@ impl ZipList {
 
         let will_remove = removes.len();
         if !removes.is_empty() {
-            let mut merge_removes = vec![removes.first().expect("").clone()];
+            let mut merge_removes = vec![*removes.first().expect("")];
             let mut last = merge_removes.last_mut().expect("");
             for i in 1..removes.len() {
                 if last.1 == removes[i].0 {
@@ -477,7 +475,8 @@ impl ZipList {
     }
 
     pub fn count_index(len: i32, index: i32) -> i32 {
-        let result_index = {
+        
+        {
             if index < 0 {
                 let mut index_ = len + index;
                 if index_ < 0 {
@@ -491,8 +490,7 @@ impl ZipList {
                     index
                 }
             }
-        };
-        result_index
+        }
     }
 
     /// 返回值 (start_in_index, stop_in_index)
@@ -526,8 +524,8 @@ impl ZipList {
         self.0.reserve(add_bytes);
         unsafe {
             self.0.set_len(old_bytes + add_bytes);
-            let p = self.0.as_mut_ptr().offset(offset as isize);
-            ptr::copy(p, p.offset(add_bytes as isize), old_bytes - offset);
+            let p = self.0.as_mut_ptr().add(offset);
+            ptr::copy(p, p.add(add_bytes), old_bytes - offset);
             ZipListNode::write_value(value, p);
         }
     }

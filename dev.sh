@@ -4,7 +4,7 @@ _DIR=$(dirname $(realpath "$0"))
 
 cd $_DIR
 
-#. ./sh/pid.sh
+. ./sh/pid.sh
 
 set -ex
 

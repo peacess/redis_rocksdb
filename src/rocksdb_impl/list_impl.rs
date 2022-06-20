@@ -11,19 +11,19 @@ use crate::{Bytes, LenType, RedisList, RedisRocksdb, RrError};
 ///
 /// redis中的list使用quicklist与ziplist实现
 impl RedisList for RedisRocksdb {
-    fn blpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError> {
+    fn blpop<K: Bytes, V: Bytes>(&mut self, _key: &K, _timeout: i64) -> Result<V, RrError> {
         todo!()
     }
 
-    fn brpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError> {
+    fn brpop<K: Bytes, V: Bytes>(&mut self, _key: &K, _timeout: i64) -> Result<V, RrError> {
         todo!()
     }
 
     fn brpoplpush<K: Bytes, V: Bytes>(
         &mut self,
-        srckey: &K,
-        dstkey: &K,
-        timeout: i64,
+        _srckey: &K,
+        _dstkey: &K,
+        _timeout: i64,
     ) -> Result<V, RrError> {
         todo!()
     }
@@ -141,7 +141,7 @@ impl RedisList for RedisRocksdb {
                 quick.set_len_node(0);
                 tr.put(key.as_ref(), quick)?;
             } else {
-                let left = node.right();
+                let _left = node.right();
                 quick.set_right(&node.left());
                 quick.set_len_node(quick.len_node() - 1);
                 quick.set_len_list(quick.len_list() - 1);
@@ -299,7 +299,7 @@ impl RedisList for RedisRocksdb {
             }
         } else if count < 0 {
             //反向遍历
-            let count = count.abs() as usize;
+            let count = count.unsigned_abs() as usize;
             let mut node_key = quick
                 .right()
                 .ok_or(RrError::none_error("left key"))?
@@ -315,7 +315,7 @@ impl RedisList for RedisRocksdb {
                 let mut zip =
                     ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip"))?;
 
-                let mut will_count = count as i32 - rem_count as i32;
+                let will_count = count as i32 - rem_count as i32;
                 let done = zip.rem(-will_count, value.as_ref());
                 rem_count += done;
 
@@ -388,7 +388,7 @@ impl RedisList for RedisRocksdb {
         Ok(rem_count)
     }
 
-    fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, RrError> {
+    fn ltrim<K: Bytes>(&mut self, _key: K, _start: i32, _stop: i32) -> Result<i32, RrError> {
         todo!()
     }
 
@@ -459,7 +459,7 @@ impl RedisList for RedisRocksdb {
                 quick.set_len_node(0);
                 tr.put(key.as_ref(), quick)?;
             } else {
-                let left = node.left();
+                let _left = node.left();
                 quick.set_right(&node.left());
                 quick.set_len_node(quick.len_node() - 1);
                 quick.set_len_list(quick.len_list() - 1);
@@ -480,7 +480,7 @@ impl RedisList for RedisRocksdb {
         Ok(value)
     }
 
-    fn rpoplpush<K: Bytes, V: Bytes>(&mut self, key: &K, dstkey: &K) -> Result<V, RrError> {
+    fn rpoplpush<K: Bytes, V: Bytes>(&mut self, _key: &K, _dstkey: &K) -> Result<V, RrError> {
         todo!()
     }
 
