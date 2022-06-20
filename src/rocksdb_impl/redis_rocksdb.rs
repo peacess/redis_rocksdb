@@ -4,8 +4,6 @@ pub struct RedisRocksdb {
 
 impl RedisRocksdb {
     pub fn new(db: ckb_rocksdb::TransactionDB) -> Self {
-        RedisRocksdb {
-            db,
-        }
+        RedisRocksdb { db }
     }
 }

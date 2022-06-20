@@ -1,9 +1,9 @@
 use core::ptr;
 
-use ckb_rocksdb::{Transaction, TransactionDB};
 use ckb_rocksdb::prelude::Get;
+use ckb_rocksdb::{Transaction, TransactionDB};
 
-use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, read_int, RrError, write_int};
+use crate::{read_int, write_int, EndianScalar, LenType, RrError, BYTES_LEN_TYPE};
 
 ///
 /// ```rust
@@ -39,7 +39,9 @@ impl<'a> ZipListNode<'a> {
     }
 
     fn from_end(bytes: &'a [u8]) -> Option<Self> {
-        let bytes_node = ZipListNode::read_bytes_of_value(&bytes[bytes.len() - ZipListNode::SIZE_NODE_TYPE..]) + ZipListNode::SIZE_NODE_TYPE * 2;
+        let bytes_node =
+            ZipListNode::read_bytes_of_value(&bytes[bytes.len() - ZipListNode::SIZE_NODE_TYPE..])
+                + ZipListNode::SIZE_NODE_TYPE * 2;
         if bytes_node > bytes.len() {
             None
         } else {
@@ -48,7 +50,9 @@ impl<'a> ZipListNode<'a> {
     }
 
     fn read_value(bytes: &'a [u8], offset: usize) -> &'a [u8] {
-        let offset_value = offset + ZipListNode::read_bytes_of_value(&bytes[offset as usize..]) + ZipListNode::SIZE_NODE_TYPE;
+        let offset_value = offset
+            + ZipListNode::read_bytes_of_value(&bytes[offset as usize..])
+            + ZipListNode::SIZE_NODE_TYPE;
         &bytes[offset + ZipListNode::SIZE_NODE_TYPE..offset_value]
     }
 
@@ -105,7 +109,6 @@ impl AsRef<[u8]> for ZipListNode<'_> {
     }
 }
 
-
 pub(crate) struct ZipList(Vec<u8>);
 
 impl From<Vec<u8>> for ZipList {
@@ -131,14 +134,14 @@ impl ZipList {
         ZipList(Vec::from([0; ZipList::LEN_INIT]))
     }
 
-
-    pub(crate) fn get(tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<ZipList>, RrError> {
+    pub(crate) fn get(
+        tr: &Transaction<TransactionDB>,
+        key: &[u8],
+    ) -> Result<Option<ZipList>, RrError> {
         let v = tr.get(key)?;
         match v {
             None => Ok(None),
-            Some(v) => {
-                Ok(Some(ZipList::from(v.to_vec())))
-            }
+            Some(v) => Ok(Some(ZipList::from(v.to_vec()))),
         }
     }
 
@@ -185,7 +188,11 @@ impl ZipList {
         let size_node = node.bytes_of_node();
         unsafe {
             let p = self.0.as_mut_ptr().offset(offset as isize);
-            ptr::copy(p.offset(size_node as isize), p, self.0.len() - offset - size_node);
+            ptr::copy(
+                p.offset(size_node as isize),
+                p,
+                self.0.len() - offset - size_node,
+            );
         }
         self.0.truncate(self.0.len() - size_node);
 
@@ -310,15 +317,25 @@ impl ZipList {
                     p = self.0.as_mut_ptr().offset(offset as isize);
                     let count = self.0.len() - diff as usize - offset - old_bytes_node;
                     if count > 0 {
-                        ptr::copy(p.offset(old_bytes_node as isize), p.offset(old_bytes_node as isize + diff as isize), count);
+                        ptr::copy(
+                            p.offset(old_bytes_node as isize),
+                            p.offset(old_bytes_node as isize + diff as isize),
+                            count,
+                        );
                     }
                 }
             } else if diff < 0 {
                 unsafe {
-                    ptr::copy(p.offset(old_bytes_node as isize), p.offset(old_bytes_node as isize - diff.abs()), self.0.len() - offset);
+                    ptr::copy(
+                        p.offset(old_bytes_node as isize),
+                        p.offset(old_bytes_node as isize - diff.abs()),
+                        self.0.len() - offset,
+                    );
                 }
                 self.0.truncate(self.0.len() - diff.abs() as usize);
-                unsafe { p = self.0.as_mut_ptr().offset(offset as isize); }
+                unsafe {
+                    p = self.0.as_mut_ptr().offset(offset as isize);
+                }
             }
 
             ZipListNode::write_value(value, p);
@@ -369,7 +386,7 @@ impl ZipList {
                     break;
                 }
             }
-            removes.reverse()//这是从后面开始遍历的，所以需要反过来
+            removes.reverse() //这是从后面开始遍历的，所以需要反过来
         } else {
             let mut it = ZipListIter::new(self);
             loop {
@@ -414,7 +431,13 @@ impl ZipList {
     //删除指定位置的数据，不会维护 len
     fn remove_start_end(&mut self, start: usize, end: usize) {
         let p = self.0[start..].as_mut_ptr();
-        unsafe { ptr::copy(p.offset(end as isize - start as isize + 1), p, self.0.len() - end - 1); }
+        unsafe {
+            ptr::copy(
+                p.offset(end as isize - start as isize + 1),
+                p,
+                self.0.len() - end - 1,
+            );
+        }
         self.0.truncate(self.0.len() - (end - start) - 1);
     }
 
@@ -473,7 +496,12 @@ impl ZipList {
     }
 
     /// 返回值 (start_in_index, stop_in_index)
-    pub fn count_in_index(len: LenType, offset: usize, start_index: usize, stop_index: usize) -> Option<(usize, usize)> {
+    pub fn count_in_index(
+        len: LenType,
+        offset: usize,
+        start_index: usize,
+        stop_index: usize,
+    ) -> Option<(usize, usize)> {
         let len = len as usize;
         let mut start_in_index = 0usize;
         let mut stop_in_index = 0usize;
@@ -528,7 +556,9 @@ impl<'a> ZipListIter<'a> {
 
     fn prev_offset(&self) -> Option<usize> {
         if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..]);
+            let len_value = ZipListNode::read_bytes_of_value(
+                &self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..],
+            );
             let mut cur = self.start_cur;
             cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             Some(cur + ZipList::OFFSET_VALUE)
@@ -550,7 +580,9 @@ impl<'a> ZipListIter<'a> {
 
     fn prev(&mut self) -> Option<ZipListNode<'a>> {
         if self.start_cur >= ZipListNode::SIZE_NODE_TYPE * 2 {
-            let len_value = ZipListNode::read_bytes_of_value(&self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..]);
+            let len_value = ZipListNode::read_bytes_of_value(
+                &self.zip_list[self.start_cur - ZipListNode::SIZE_NODE_TYPE..],
+            );
             let cur = self.start_cur;
             self.start_cur -= len_value + ZipListNode::SIZE_NODE_TYPE * 2;
             self.pre = Some(cur);
@@ -595,7 +627,6 @@ impl<'a> Iterator for ZipListIter<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use crate::rocksdb_impl::zip_list::{ZipList, ZipListIter};
@@ -606,9 +637,15 @@ mod test {
         zip.push_left(&[1]);
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         zip.push_left(&[2, 3]);
-        assert_eq!(&[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
         zip.push_left(&[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]
@@ -618,9 +655,15 @@ mod test {
 
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         zip.push_right(&[2, 3]);
-        assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
         zip.push_right(&[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]
@@ -662,7 +705,8 @@ mod test {
     #[test]
     fn test_zip_list_set_index() {
         let mut zip = ZipList::new();
-        {// one
+        {
+            // one
             zip.push_right(&[1]);
 
             let node = zip.index(1);
@@ -686,25 +730,38 @@ mod test {
             assert_eq!(node.expect(""), &[1]);
         }
 
-        { //two
+        {
+            //two
             zip.push_right(&[2, 3]);
 
             let node = zip.set(0, &[10]);
             assert_eq!(node.expect("").as_slice(), &[1]);
-            assert_eq!(&[2, 0, 0, 0, 1, 0, 10, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+            assert_eq!(
+                &[2, 0, 0, 0, 1, 0, 10, 1, 0, 2, 0, 2, 3, 2, 0],
+                zip.0.as_slice()
+            );
             let node = zip.set(0, &[1, 4, 5]);
             assert_eq!(node.expect("").as_slice(), &[10]);
-            assert_eq!(&[2, 0, 0, 0, 3, 0, 1, 4, 5, 3, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+            assert_eq!(
+                &[2, 0, 0, 0, 3, 0, 1, 4, 5, 3, 0, 2, 0, 2, 3, 2, 0],
+                zip.0.as_slice()
+            );
             let node = zip.set(0, &[1]);
             assert_eq!(node.expect("").as_slice(), &[1, 4, 5]);
 
             let node = zip.set(1, &[1]);
             assert_eq!(node.expect("").as_slice(), &[2, 3]);
-            assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+            assert_eq!(
+                &[2, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0],
+                zip.0.as_slice()
+            );
 
             let node = zip.set(1, &[2, 3]);
             assert_eq!(node.expect("").as_slice(), &[1]);
-            assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+            assert_eq!(
+                &[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0],
+                zip.0.as_slice()
+            );
         }
         // {
         //     //three
@@ -717,9 +774,15 @@ mod test {
         zip.insert_left(0, &[1]);
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         zip.insert_left(0, &[2, 3]);
-        assert_eq!(&[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
         zip.insert_left(0, &[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
 
         zip.clear();
         assert_eq!(&[0, 0, 0, 0], zip.0.as_slice());
@@ -727,9 +790,15 @@ mod test {
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
 
         zip.insert_left(zip.len() as i32, &[2, 3]);
-        assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
         zip.insert_left(1, &[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]
@@ -739,13 +808,22 @@ mod test {
 
         assert_eq!(&[1, 0, 0, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
         zip.insert_right(0, &[2, 3]);
-        assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
         zip.insert_right(1, &[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0],
+            zip.0.as_slice()
+        );
 
         zip.pop_right();
         zip.insert_right(0, &[4, 5, 6]);
-        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]
@@ -758,10 +836,16 @@ mod test {
         zip.insert_left(0, &[1]);
         re = zip.insert_value_left(&[1], &[2, 3]);
         assert_eq!(Some(0), re);
-        assert_eq!(&[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
         re = zip.insert_value_left(&[1], &[4, 5, 6]);
         assert_eq!(Some(1), re);
-        assert_eq!(&[3, 0, 0, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 2, 0, 2, 3, 2, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
 
         zip.clear();
         zip.insert_left(0, &[1]);
@@ -772,10 +856,16 @@ mod test {
         assert_eq!(Some(0), re);
         re = zip.insert_value_left(&[2, 3], &[4, 5, 6]);
         assert_eq!(Some(0), re);
-        assert_eq!(&[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
         re = zip.insert_value_left(&[2, 3], &[7]);
         assert_eq!(Some(1), re);
-        assert_eq!(&[4, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0], zip.0.as_slice());
+        assert_eq!(
+            &[4, 0, 0, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0, 1, 0, 1, 1, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]
@@ -787,15 +877,24 @@ mod test {
 
         re = zip.insert_value_right(&[1], &[2, 3]);
         assert_eq!(Some(0), re);
-        assert_eq!(&[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
 
         re = zip.insert_value_right(&[1], &[4, 5, 6]);
         assert_eq!(Some(0), re);
-        assert_eq!(&[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[3, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
 
         re = zip.insert_value_right(&[4, 5, 6], &[7]);
         assert_eq!(Some(1), re);
-        assert_eq!(&[4, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0], zip.0.as_slice());
+        assert_eq!(
+            &[4, 0, 0, 0, 1, 0, 1, 1, 0, 3, 0, 4, 5, 6, 3, 0, 1, 0, 7, 1, 0, 2, 0, 2, 3, 2, 0],
+            zip.0.as_slice()
+        );
     }
 
     #[test]

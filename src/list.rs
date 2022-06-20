@@ -1,20 +1,35 @@
-use crate::{Bytes, LenType};
 use crate::RrError;
+use crate::{Bytes, LenType};
 
 pub trait RedisList {
     fn blpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError>;
     fn brpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError>;
-    fn brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: &K, dstkey: &K, timeout: i64) -> Result<V, RrError>;
+    fn brpoplpush<K: Bytes, V: Bytes>(
+        &mut self,
+        srckey: &K,
+        dstkey: &K,
+        timeout: i64,
+    ) -> Result<V, RrError>;
     fn lindex<K: Bytes>(&self, key: &K, index: i32) -> Result<Vec<u8>, RrError>;
 
     /// 如果命令执行成功，返回插入操作完成之后，列表的长度。
     /// 如果没有找到指定元素 ，返回 -1 。
     /// 如果 key 不存在或为空列表，返回 0
-    fn linsert_before<K: Bytes, V: Bytes>(&mut self, key: &K, pivot: &V, value: &V) -> Result<i32, RrError>;
+    fn linsert_before<K: Bytes, V: Bytes>(
+        &mut self,
+        key: &K,
+        pivot: &V,
+        value: &V,
+    ) -> Result<i32, RrError>;
     /// 如果命令执行成功，返回插入操作完成之后，列表的长度。
     /// 如果没有找到指定元素 ，返回 -1 。
     /// 如果 key 不存在或为空列表，返回 0
-    fn linsert_after<K: Bytes, V: Bytes>(&mut self, key: &K, pivot: &V, value: &V) -> Result<i32, RrError>;
+    fn linsert_after<K: Bytes, V: Bytes>(
+        &mut self,
+        key: &K,
+        pivot: &V,
+        value: &V,
+    ) -> Result<i32, RrError>;
 
     // 返回值为-1表示还没有这个list
     fn llen<K: Bytes>(&self, key: &K) -> Result<i32, RrError>;
@@ -39,12 +54,22 @@ pub trait RedisList {
     /// count > 0 : 从表头开始向表尾搜索，移除与 VALUE 相等的元素，数量为 COUNT。
     /// count < 0 : 从表尾开始向表头搜索，移除与 VALUE 相等的元素，数量为 COUNT 的绝对值。
     /// count = 0 : 移除表中所有与 VALUE 相等的值
-    fn lrem<K: Bytes, V: Bytes>(&mut self, key: &K, count: i32, value: &V) -> Result<LenType, RrError>;
+    fn lrem<K: Bytes, V: Bytes>(
+        &mut self,
+        key: &K,
+        count: i32,
+        value: &V,
+    ) -> Result<LenType, RrError>;
     /// 保留指定区间内的元素，不在指定区间之内的元素都将被删除, 反回删除的元素数量
     fn ltrim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, RrError>;
 
     /// index无效或list为空时，返回错误。其余返回原来的值
-    fn lset<K: Bytes, V: Bytes>(&mut self, key: &K, index: i32, value: &V) -> Result<Vec<u8>, RrError>;
+    fn lset<K: Bytes, V: Bytes>(
+        &mut self,
+        key: &K,
+        index: i32,
+        value: &V,
+    ) -> Result<Vec<u8>, RrError>;
     /// 移除列表的最后一个元素
     fn rpop<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<u8>>, RrError>;
     /// 移除列表的最后一个元素，并将该元素添加到另一个列表并返回
