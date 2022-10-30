@@ -1,3 +1,5 @@
+extern crate core;
+
 pub use error::RrError;
 pub use hash::*;
 pub use list::*;

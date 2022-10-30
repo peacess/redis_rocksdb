@@ -15,6 +15,7 @@ impl RrError {
     }
     pub(crate) fn not_find(name: &str) -> RrError { RrError::Message(name.to_owned()) }
     pub(crate) fn none_error(name: &str) -> RrError { RrError::Message(name.to_owned()) }
+    pub(crate) fn data_error(name: &str) -> RrError { RrError::Message(name.to_owned()) }
 }
 
 impl Display for RrError {
