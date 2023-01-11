@@ -57,5 +57,5 @@ pub trait RedisList {
     fn rpush_exists<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i32, RrError>;
 
     /// 返回len of list
-    fn clear<K: Bytes>(&mut self, key: &K) -> Result<i32, RrError>;
+    fn l_clear<K: Bytes>(&mut self, key: &K) -> Result<i32, RrError>;
 }

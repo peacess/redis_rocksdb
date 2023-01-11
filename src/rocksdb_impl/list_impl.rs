@@ -413,7 +413,7 @@ impl RedisList for RedisRocksdb {
         Ok(re)
     }
 
-    fn clear<K: Bytes>(&mut self, key: &K) -> Result<i32, RrError> {
+    fn l_clear<K: Bytes>(&mut self, key: &K) -> Result<i32, RrError> {
         let tr = self.db.transaction_default();
         let mut quick = match QuickList::get(&self.db, key.as_ref())? {
             None => return Ok(0),

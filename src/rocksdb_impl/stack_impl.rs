@@ -1,22 +1,17 @@
-use core::slice::SlicePattern;
-use std::mem::copy;
+use std::ops::Deref;
 use std::ptr;
-use anyhow::Context;
-use ckb_rocksdb::prelude::{Delete, Get, Put, TransactionBegin};
 
-use crate::{Bytes, LenType, read_int, RedisList, RedisRocksdb, RrError, Stack, write_int};
-use crate::rocksdb_impl::quick_list::QuickList;
-use crate::rocksdb_impl::quick_list_node::QuickListNode;
-use crate::rocksdb_impl::zip_list::ZipList;
+use ckb_rocksdb::prelude::Get;
 
+use crate::{Bytes, read_int, RedisRocksdb, RrError, Stack, write_int};
 
 impl Stack for RedisRocksdb {
     fn index<K: Bytes>(&self, key: &K, index: i64) -> Result<Vec<u8>, RrError> {
-        let stack = StackHeader::get_stack(&self.db, key)?;
+        let stack = StackHeader::get_stack(&self.db, key.as_ref())?;
         match stack {
             None => Ok(vec![]),
             Some(v) => {
-
+                Ok(v.size.to_vec())
             }
         }
     }
@@ -62,26 +57,25 @@ impl Stack for RedisRocksdb {
     }
 }
 
-struct StackHeader<'a> {
+struct StackHeader {
     size: [u8; 8],
     // key: &'a [u8],
 }
 
 impl StackHeader {
-
     fn size_i64(&self) -> i64 {
         read_int(&self.size)
     }
-    fn add_1(&mut self) -> i64{
+    fn add_1(&mut self) -> i64 {
         let mut t = read_int(&self.size);
-        t +=1;
+        t += 1;
         write_int(&mut self.size, t);
         t
     }
 
-    fn add(&mut self, v: i64) -> i64{
+    fn add(&mut self, v: i64) -> i64 {
         let mut t = read_int(&self.size);
-        t +=v;
+        t += v;
         write_int(&mut self.size, t);
         t
     }
@@ -98,45 +92,45 @@ impl StackHeader {
         v
     }
 
-    fn get_stack(db: &ckb_rocksdb::TransactionDB, key: &[u8]) -> Result<Option<Self>, RrError>{
+    fn get_stack(db: &ckb_rocksdb::TransactionDB, key: &[u8]) -> Result<Option<Self>, RrError> {
         let v = db.get(key)?;
         match v {
             None => Ok(None),
             Some(v) => {
                 if v.len() < 8 {
                     Err(RrError::data_error("key < 8"))
-                }else{
-                    OK(Some(StackHeader::from(v.as_slice())))
+                } else {
+                    Ok(Some(StackHeader::from(v.deref())))
                 }
             }
         }
     }
-    fn get_index(&self,db: &ckb_rocksdb::TransactionDB, key: &[u8], index: i64) -> Result<Vec<u8>, RrError>{
+    fn get_index(&self, db: &ckb_rocksdb::TransactionDB, key: &[u8], index: i64) -> Result<Vec<u8>, RrError> {
         let v = db.get(key)?;
         match v {
-            None => Ok(None),
+            None => Ok(vec![]),
             Some(v) => {
                 if v.len() < 8 {
                     Err(RrError::data_error("key < 8"))
-                }else{
-                    OK(Some(StackHeader::from(v.as_slice())))
+                } else {
+                    Ok(v.to_vec())
                 }
             }
         }
     }
 }
 
-impl From<i64> for StackHeader{
+impl From<i64> for StackHeader {
     fn from(value: i64) -> Self {
-        let mut s = StackHeader{ size: [u8;8] };
+        let mut s = StackHeader { size: [0; 8] };
         write_int(&mut s.size, value);
         s
     }
 }
 
-impl From<&[u8]> for StackHeader{
+impl From<&[u8]> for StackHeader {
     fn from(value: &[u8]) -> Self {
-        let mut s = StackHeader{ size: [u8;8] };
+        let mut s = StackHeader { size: [0; 8] };
         s.size.copy_from_slice(value);
         s
     }
@@ -148,5 +142,4 @@ impl AsRef<[u8]> for StackHeader {
     }
 }
 
-impl Bytes for StackHeader {
-}
+impl Bytes for StackHeader {}
