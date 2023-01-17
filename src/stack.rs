@@ -1,4 +1,4 @@
-use crate::{Bytes, LenType};
+use crate::Bytes;
 use crate::RrError;
 
 /// key+index
