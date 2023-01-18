@@ -1,7 +1,6 @@
 use core::ptr;
 
-use ckb_rocksdb::{Transaction, TransactionDB};
-use ckb_rocksdb::prelude::Get;
+use rocksdb::{Transaction, TransactionDB};
 
 use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, read_int, RrError, write_int};
 

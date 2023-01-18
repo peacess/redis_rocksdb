@@ -1,9 +1,9 @@
 pub struct RedisRocksdb {
-    pub(crate) db: ckb_rocksdb::TransactionDB,
+    pub(crate) db: rocksdb::TransactionDB,
 }
 
 impl RedisRocksdb {
-    pub fn new(db: ckb_rocksdb::TransactionDB) -> Self {
+    pub fn new(db: rocksdb::TransactionDB) -> Self {
         RedisRocksdb {
             db,
         }

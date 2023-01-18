@@ -1,8 +1,6 @@
 use std::ops::Deref;
 use std::ptr;
 
-use ckb_rocksdb::prelude::Get;
-
 use crate::{Bytes, read_int, RedisRocksdb, RrError, Stack, write_int};
 
 impl Stack for RedisRocksdb {
@@ -92,7 +90,7 @@ impl StackHeader {
         v
     }
 
-    fn get_stack(db: &ckb_rocksdb::TransactionDB, key: &[u8]) -> Result<Option<Self>, RrError> {
+    fn get_stack(db: &rocksdb::TransactionDB, key: &[u8]) -> Result<Option<Self>, RrError> {
         let v = db.get(key)?;
         match v {
             None => Ok(None),
@@ -105,7 +103,7 @@ impl StackHeader {
             }
         }
     }
-    fn get_index(&self, db: &ckb_rocksdb::TransactionDB, key: &[u8], index: i64) -> Result<Vec<u8>, RrError> {
+    fn get_index(&self, db: &rocksdb::TransactionDB, key: &[u8], index: i64) -> Result<Vec<u8>, RrError> {
         let v = db.get(key)?;
         match v {
             None => Ok(vec![]),

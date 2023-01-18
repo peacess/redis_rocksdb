@@ -1,5 +1,3 @@
-use ckb_rocksdb::ops::{Get, Put};
-
 use crate::{Bytes, KeyValue, RedisRocksdb, RrError};
 
 impl KeyValue for RedisRocksdb {

@@ -56,8 +56,8 @@ impl From<anyhow::Error> for RrError {
 //     }
 // }
 
-impl From<ckb_rocksdb::Error> for RrError {
-    fn from(e: ckb_rocksdb::Error) -> Self {
+impl From<rocksdb::Error> for RrError {
+    fn from(e: rocksdb::Error) -> Self {
         RrError::Other(anyhow::Error::from(e))
     }
 }

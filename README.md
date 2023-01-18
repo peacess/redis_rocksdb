@@ -21,3 +21,5 @@ see the [test](./tests/_redis_rocksdb/test_list_impl.rs)
 [ssdb](https://ssdb.io/zh_cn/)  
 [rust-rocksdb, no transaction](https://github.com/rust-rocksdb/rust-rocksdb)  
 [ckb-rocksdb, transaction](https://github.com/nervosnetwork/rust-rocksdb)  
+
+注：在v0.1.0版本时使用ckb-rocksdb，在v0.2.0版本中，为了减少一次函数调用，把事务与非事务分别使用不同的接口实现，所以就没有必要再使用ckb-rocksdb  

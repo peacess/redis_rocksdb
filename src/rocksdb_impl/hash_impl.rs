@@ -1,55 +1,55 @@
-use crate::{Bytes, RedisHash, RedisRocksdb, RrError};
+use crate::{RedisHash, RedisRocksdb, RrError};
 
 impl RedisHash for RedisRocksdb {
-    fn hash_del<K: Bytes>(&mut self, key: &K, field: &K) -> Result<Option<Vec<u8>>, RrError> {
+    fn hash_del(&mut self, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
         todo!()
     }
 
-    fn hash_dels<K: Bytes>(&mut self, key: &K, fields: &[K]) -> Result<i64, RrError> {
+    fn hash_dels(&mut self, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError> {
         todo!()
     }
 
-    fn hash_exists<K: Bytes>(&mut self, key: &K, field: &K) -> Result<bool, RrError> {
+    fn hash_exists(&mut self, key: &[u8], field: &[u8]) -> Result<bool, RrError> {
         todo!()
     }
 
-    fn hash_get<K: Bytes>(&mut self, key: &K, field: &K) -> Result<Option<Vec<u8>>, RrError> {
+    fn hash_get(&mut self, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
         todo!()
     }
 
-    fn hash_get_all<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<Vec<u8>>>, RrError> {
+    fn hash_get_all(&mut self, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
         todo!()
     }
 
-    fn hash_keys<K: Bytes>(&mut self, key: &K) -> Result<Option<Vec<Vec<u8>>>, RrError> {
+    fn hash_keys(&mut self, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
         todo!()
     }
 
-    fn hash_len<K: Bytes>(&mut self, key: &K) -> Result<Option<i64>, RrError> {
+    fn hash_len(&mut self, key: &[u8]) -> Result<Option<i64>, RrError> {
         todo!()
     }
 
-    fn hash_mget<K: Bytes>(&mut self, key: &K, fields: &[K]) -> Result<Vec<Option<Vec<u8>>>, RrError> {
+    fn hash_mget(&mut self, key: &[u8], fields: &[u8]) -> Result<Vec<Option<Vec<u8>>>, RrError> {
         todo!()
     }
 
-    fn hash_set<K: Bytes, V: Bytes>(&mut self, key: &K, field: &K, value: &V) -> Result<i32, RrError> {
+    fn hash_set(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         todo!()
     }
 
-    fn hash_set_not_exist<K: Bytes, V: Bytes>(&mut self, key: &K, field: &K, value: &V) -> Result<i32, RrError> {
+    fn hash_set_not_exist(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         todo!()
     }
 
-    fn hash_set_exist<K: Bytes, V: Bytes>(&mut self, key: &K, field: &K, value: &V) -> Result<i32, RrError> {
+    fn hash_set_exist(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         todo!()
     }
 
-    fn hash_vals<K: Bytes>(&mut self, key: &K) -> Result<Vec<Vec<u8>>, RrError> {
+    fn hash_vals(&mut self, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError> {
         todo!()
     }
 
-    fn hash_remove_key<K: Bytes>(&mut self, key: &K) -> Result<(), RrError> {
+    fn hash_remove_key(&mut self, key: &[u8]) -> Result<(), RrError> {
         todo!()
     }
 }

@@ -2,9 +2,7 @@ use core::mem;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use ckb_rocksdb::{ReadOptions, Transaction, TransactionDB};
-use ckb_rocksdb::ops::Delete;
-use ckb_rocksdb::prelude::Put;
+use rocksdb::{Transaction, TransactionDB};
 
 use crate::{BYTES_LEN_TYPE, LenType, MetaKey, read_len_type, RrError, write_len_type};
 use crate::rocksdb_impl::quick_list_node::QuickListNode;
@@ -36,7 +34,7 @@ impl QuickList {
         QuickList([0; mem::size_of::<_QuickList>()])
     }
 
-    pub(crate) fn get<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickList>, RrError> {
+    pub(crate) fn get(db: &TransactionDB, key: &[u8]) -> Result<Option<QuickList>, RrError> {
         let v = db.get(key)?;
         match v {
             None => Ok(None),
@@ -51,7 +49,7 @@ impl QuickList {
         }
     }
 
-    pub(crate) fn get_node<T: ckb_rocksdb::ops::Get<ReadOptions>>(db: &T, key: &[u8]) -> Result<Option<QuickListNode>, RrError> {
+    pub(crate) fn get_node(db: &TransactionDB, key: &[u8]) -> Result<Option<QuickListNode>, RrError> {
         let v = db.get(key)?;
         match v {
             None => Ok(None),
@@ -263,7 +261,7 @@ impl QuickList {
             node_key = node.left();
         }
         tr.delete(list_key)?;
-        tr.commit()?;
+        // tr.commit()?;
         Ok(l as i32)
     }
 

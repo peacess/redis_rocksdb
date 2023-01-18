@@ -1,7 +1,6 @@
 use core::mem;
 
-use ckb_rocksdb::{Transaction, TransactionDB};
-use ckb_rocksdb::prelude::Get;
+use rocksdb::{Transaction, TransactionDB};
 
 use crate::{BYTES_LEN_TYPE, LenType, MetaKey, read_len_type, RrError, write_len_type};
 
