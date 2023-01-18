@@ -7,7 +7,7 @@ use crate::{KvSet, KvSetTr, RrError};
 pub struct KvSetImp {}
 
 impl KvSet for KvSetImp {
-    fn kv_set_del(&self, db: &TransactionDB, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
+    fn kv_set_del(&self, db: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError> {
         todo!()
     }
 
@@ -39,7 +39,7 @@ impl KvSet for KvSetImp {
         todo!()
     }
 
-    fn kv_set_set(&self, db: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
+    fn kv_set_set(&self, db: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         todo!()
     }
 
@@ -66,8 +66,10 @@ impl KvSet for KvSetImp {
 struct KvSetTrImp {}
 
 impl KvSetTr for KvSetTrImp {
-    fn kv_set_del(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
-        todo!()
+    fn kv_set_del(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8]) -> Result<(), RrError> {
+        let new_key = make_key(key,field);
+        tr.delete(&new_key)?;
+        Ok(())
     }
 
     fn kv_set_dels(&self, tr: &Transaction<TransactionDB>, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError> {
@@ -79,7 +81,9 @@ impl KvSetTr for KvSetTrImp {
     }
 
     fn kv_set_get(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
-        todo!()
+        let new_key = make_key(key, field);
+        let v = tr.get(&new_key)?;
+        return Ok(v);
     }
 
     fn kv_set_get_all(&self, tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
@@ -98,8 +102,10 @@ impl KvSetTr for KvSetTrImp {
         todo!()
     }
 
-    fn kv_set_set(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
-        todo!()
+    fn kv_set_set(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
+        let new_key = make_key(key,field);
+        tr.put(&new_key, value)?;
+        Ok(())
     }
 
     fn kv_set_set_not_exist(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {

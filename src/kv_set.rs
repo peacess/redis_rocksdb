@@ -5,7 +5,7 @@ use crate::RrError;
 /// 可以存储大量的数据，在遍历数据时，性能不如redis hash
 pub trait KvSet {
     /// 删除指定的字段，并返回对应的值，如果没有返回None
-    fn kv_set_del(&self, db: &TransactionDB, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError>;
+    fn kv_set_del(&self, db: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError>;
     /// 返回被成功删除字段的数量，不包括的字段被忽略
     fn kv_set_dels(&self, db: &TransactionDB, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError>;
     /// true: 表示存在, false: key或field不存在
@@ -20,8 +20,8 @@ pub trait KvSet {
     fn kv_set_len(&self, db: &TransactionDB, key: &[u8]) -> Result<Option<i64>, RrError>;
     /// 返回值与请求顺序一样，如果字段不存在值为Ｎone
     fn kv_set_mget(&self, db: &TransactionDB, key: &[u8], fields: &[u8]) -> Result<Vec<Option<Vec<u8>>>, RrError>;
-    /// 并且值设置成功，返回 1 。
-    fn kv_set_set(&self, db: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError>;
+    ///
+    fn kv_set_set(&self, db: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
     // fn mset<K: Bytes, V: Bytes>(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError>;
     /// 设置成功，返回 1 。 如果给定字段已经存在且没有操作被执行，返回 0
     /// 对应redis的hsetnx
@@ -41,7 +41,7 @@ pub trait KvSet {
 /// 带Tx后缀，表示带事务的
 pub trait KvSetTr {
     /// 删除指定的字段，并返回对应的值，如果没有返回None
-    fn kv_set_del(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError>;
+    fn kv_set_del(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8]) -> Result<(), RrError>;
     /// 返回被成功删除字段的数量，不包括的字段被忽略
     fn kv_set_dels(&self, tr: &Transaction<TransactionDB>, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError>;
     /// true: 表示存在, false: key或field不存在
@@ -56,8 +56,8 @@ pub trait KvSetTr {
     fn kv_set_len(&self, tr: &Transaction<TransactionDB>, key: &[u8]) -> Result<Option<i64>, RrError>;
     /// 返回值与请求顺序一样，如果字段不存在值为Ｎone
     fn kv_set_mget(&self, tr: &Transaction<TransactionDB>, key: &[u8], fields: &[u8]) -> Result<Vec<Option<Vec<u8>>>, RrError>;
-    /// 并且值设置成功，返回 1 。
-    fn kv_set_set(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError>;
+    ///
+    fn kv_set_set(&self, tr: &Transaction<TransactionDB>, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
     // fn mset<K: Bytes, V: Bytes>(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError>;
     /// 设置成功，返回 1 。 如果给定字段已经存在且没有操作被执行，返回 0
     /// 对应redis的hsetnx
