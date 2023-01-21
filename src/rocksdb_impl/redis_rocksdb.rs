@@ -1,3 +1,6 @@
+use crate::rocksdb_impl::KvSetImp;
+use crate::rocksdb_impl::KvSetTrImp;
+
 pub struct RedisRocksdb {
     pub(crate) db: rocksdb::TransactionDB,
 }
@@ -7,5 +10,13 @@ impl RedisRocksdb {
         RedisRocksdb {
             db,
         }
+    }
+
+    pub fn kv_set() -> KvSetImp {
+        return KvSetImp {};
+    }
+
+    pub fn kv_set_tr() -> KvSetTrImp {
+        return KvSetTrImp {};
     }
 }

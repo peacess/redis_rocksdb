@@ -1,3 +1,5 @@
+pub use kv_set_impl::*;
+pub use kv_set_tr_impl::*;
 pub use redis_rocksdb::RedisRocksdb;
 
 mod redis_rocksdb;
@@ -9,3 +11,4 @@ mod key_value_impl;
 mod stack_impl;
 mod hash_impl;
 mod kv_set_impl;
+mod kv_set_tr_impl;
