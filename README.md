@@ -2,7 +2,8 @@
 rust implement structure kv(key/value) embedded database, storage by rocksdb      
 Feature list  
 1. redis list
-2. 
+2. Object, key+field
+3. ObjectBit, a bit object 
 # Sample
 see the [test](./tests/_redis_rocksdb/test_list_impl.rs)
 ```rust

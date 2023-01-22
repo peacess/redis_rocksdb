@@ -1,5 +1,4 @@
-use crate::rocksdb_impl::KvSetImp;
-use crate::rocksdb_impl::KvSetTrImp;
+use crate::{ObjectImp, ObjectTransImp};
 
 pub struct RedisRocksdb {
     pub(crate) db: rocksdb::TransactionDB,
@@ -12,11 +11,11 @@ impl RedisRocksdb {
         }
     }
 
-    pub fn kv_set() -> KvSetImp {
-        return KvSetImp {};
+    pub fn kv_set() -> ObjectImp {
+        return ObjectImp {};
     }
 
-    pub fn kv_set_tr() -> KvSetTrImp {
-        return KvSetTrImp {};
+    pub fn kv_set_tr() -> ObjectTransImp {
+        return ObjectTransImp {};
     }
 }

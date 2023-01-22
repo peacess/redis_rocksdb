@@ -85,12 +85,35 @@ pub fn read_int<T: EndianScalar>(bytes: &[u8]) -> T {
     }.from_little_endian()
 }
 
+pub fn read_int_ptr<T: EndianScalar>(p: *const u8) -> T {
+    let mut mem = core::mem::MaybeUninit::<T>::uninit();
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            p,
+            mem.as_mut_ptr() as *mut u8,
+            core::mem::size_of::<T>(),
+        );
+        mem.assume_init()
+    }.from_little_endian()
+}
+
 pub fn write_int<T: EndianScalar>(bytes: &mut [u8], value: T) {
     let x_le = value.to_little_endian();
     unsafe {
         core::ptr::copy_nonoverlapping(
             &x_le as *const T as *const u8,
             bytes.as_mut_ptr(),
+            core::mem::size_of::<T>(),
+        );
+    }
+}
+
+pub fn write_int_ptr<T: EndianScalar>(p: *mut u8, value: T) {
+    let x_le = value.to_little_endian();
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            &x_le as *const T as *const u8,
+            p,
             core::mem::size_of::<T>(),
         );
     }
