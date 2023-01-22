@@ -192,6 +192,7 @@ impl<'db> Object<Transaction<'db, TransactionDB>> for FewObjectTrans {
                 let new_key = make_key(key, field.field);
                 t.delete(new_key)?;
             }
+            t.delete(&head_key)?;
         }
         return Ok(());
     }
