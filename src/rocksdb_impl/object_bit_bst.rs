@@ -119,8 +119,7 @@ impl Object<TransactionDB> for BitObjectBst {
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         } else {
-            let mut few_field = BitFieldSorted::new(Vec::with_capacity(mem::size_of::<LenBitFieldSorted>()));
-            few_field.init();
+            let mut few_field = BitFieldSorted::new(vec![]);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         }
@@ -140,8 +139,7 @@ impl Object<TransactionDB> for BitObjectBst {
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             } else {
-                let mut few_field = BitFieldSorted::new(Vec::with_capacity(mem::size_of::<LenBitFieldSorted>()));
-                few_field.init();
+                let mut few_field = BitFieldSorted::new(vec![]);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             }
@@ -216,13 +214,19 @@ impl BitFieldSorted {
     const BST_OFFSET: isize = 2 * (mem::size_of::<LenBitFieldSorted>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
-        BitFieldSorted { data, bst_capt: 256 }
+        let mut data = data;
+        let mut bst_capt = 256 as isize;
+        if data.is_empty() {
+            data.resize(2 * mem::size_of::<LenBitFieldSorted>() + bst_capt as usize, 0);
+        } else {
+            unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenBitFieldSorted>() as isize)) as isize; }
+        }
+        BitFieldSorted { data, bst_capt }
     }
 
-    pub fn init(&mut self) {
-        if self.data.is_empty() {
-            self.data.resize(mem::size_of::<LenBitFieldSorted>(), 0);
-        }
+    /// 计算字段的偏移位置
+    fn field_offset(&self) -> isize {
+        BitFieldSorted::BST_OFFSET + self.bst_capt
     }
     /// 返回值true: 字段存在
     pub fn del(&mut self, field: &[u8]) -> bool {

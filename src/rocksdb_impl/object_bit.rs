@@ -36,7 +36,7 @@ impl Object<TransactionDB> for BitObject {
         }
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut f = BitField { data: fv };
+            let mut f = BitField::new(fv);
             for field in fields {
                 if f.del(field) {
                     count += 1;
@@ -63,7 +63,7 @@ impl Object<TransactionDB> for BitObject {
     fn get_all(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitField::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -83,7 +83,7 @@ impl Object<TransactionDB> for BitObject {
     fn keys(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitField::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 re.push(field.field.to_vec());
@@ -120,12 +120,11 @@ impl Object<TransactionDB> for BitObject {
     fn set(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut few_field = BitField { data: fv };
+            let mut few_field = BitField::new(fv);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         } else {
-            let mut few_field = BitField { data: Vec::with_capacity(mem::size_of::<LenBitField>()) };
-            few_field.init();
+            let mut few_field = BitField::new(vec![]);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         }
@@ -141,12 +140,11 @@ impl Object<TransactionDB> for BitObject {
 
             let head_key = make_head_key(key);
             if let Some(fv) = t.get(&head_key)? {
-                let mut few_field = BitField { data: fv };
+                let mut few_field = BitField::new(fv);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             } else {
-                let mut few_field = BitField { data: Vec::with_capacity(mem::size_of::<LenBitField>()) };
-                few_field.init();
+                let mut few_field = BitField::new(vec![]);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             }
@@ -171,7 +169,7 @@ impl Object<TransactionDB> for BitObject {
     fn vals(&self, t: &TransactionDB, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitField::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -191,7 +189,7 @@ impl Object<TransactionDB> for BitObject {
     fn remove_key(&self, t: &TransactionDB, key: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitField::new(fv);
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
                 t.delete(new_key)?;
@@ -216,14 +214,13 @@ impl BitField {
     const SIZE: usize = mem::size_of::<SizeBitField>();
 
     pub fn new(data: Vec<u8>) -> Self {
+        let mut data = data;
+        if data.is_empty() {
+            data.resize(mem::size_of::<LenBitField>(), 0);
+        }
         BitField { data }
     }
 
-    pub fn init(&mut self) {
-        if self.data.is_empty() {
-            self.data.resize(mem::size_of::<LenBitField>(), 0);
-        }
-    }
     /// 返回值true: 字段存在
     pub fn del(&mut self, field: &[u8]) -> bool {
         let (start, field_size) = self.find(field);
