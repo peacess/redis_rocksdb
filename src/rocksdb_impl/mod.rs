@@ -15,5 +15,5 @@ mod object_bit;
 mod object_bit_trans;
 mod object_impl;
 mod object_trans_impl;
-mod object_bit_bst;
+mod object_max_heap;
 

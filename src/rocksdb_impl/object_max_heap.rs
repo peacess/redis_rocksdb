@@ -5,15 +5,14 @@ use rocksdb::TransactionDB;
 use crate::{Object, read_int, read_int_ptr, RrError, write_int_ptr};
 use crate::rocksdb_impl::make_key;
 
-/// bst -- Binary Search Tree
-/// 字段使用二叉查找树进行，增删改查管理
-pub struct BitObjectBst {}
+/// 字段名使用 max head存放
+pub struct ObjectMaxHead {}
 
-impl Object<TransactionDB> for BitObjectBst {
+impl Object<TransactionDB> for ObjectMaxHead {
     fn del(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut f = BitFieldSorted::new(fv);
+            let mut f = FieldMaxHeap::new(fv);
             f.del(field);
             t.put(&head_key, &f.data)?;
         }
@@ -31,7 +30,7 @@ impl Object<TransactionDB> for BitObjectBst {
         }
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut f = BitFieldSorted::new(fv);
+            let mut f = FieldMaxHeap::new(fv);
             for field in fields {
                 if f.del(field) {
                     count += 1;
@@ -58,7 +57,7 @@ impl Object<TransactionDB> for BitObjectBst {
     fn get_all(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitFieldSorted::new(fv);
+            let few_field = FieldMaxHeap::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -78,7 +77,7 @@ impl Object<TransactionDB> for BitObjectBst {
     fn keys(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitFieldSorted::new(fv);
+            let few_field = FieldMaxHeap::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 re.push(field.field.to_vec());
@@ -92,7 +91,7 @@ impl Object<TransactionDB> for BitObjectBst {
     fn len(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<i64>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitFieldSorted::new(fv);
+            let few_field = FieldMaxHeap::new(fv);
             Ok(Some(few_field.len() as i64))
         } else {
             return Ok(None);
@@ -115,11 +114,11 @@ impl Object<TransactionDB> for BitObjectBst {
     fn set(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut few_field = BitFieldSorted::new(fv);
+            let mut few_field = FieldMaxHeap::new(fv);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         } else {
-            let mut few_field = BitFieldSorted::new(vec![]);
+            let mut few_field = FieldMaxHeap::new(vec![]);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         }
@@ -135,11 +134,11 @@ impl Object<TransactionDB> for BitObjectBst {
 
             let head_key = make_head_key(key);
             if let Some(fv) = t.get(&head_key)? {
-                let mut few_field = BitFieldSorted::new(fv);
+                let mut few_field = FieldMaxHeap::new(fv);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             } else {
-                let mut few_field = BitFieldSorted::new(vec![]);
+                let mut few_field = FieldMaxHeap::new(vec![]);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             }
@@ -164,7 +163,7 @@ impl Object<TransactionDB> for BitObjectBst {
     fn vals(&self, t: &TransactionDB, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitFieldSorted::new(fv);
+            let few_field = FieldMaxHeap::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -184,7 +183,7 @@ impl Object<TransactionDB> for BitObjectBst {
     fn remove_key(&self, t: &TransactionDB, key: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let few_field = BitFieldSorted::new(fv);
+            let few_field = FieldMaxHeap::new(fv);
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
                 t.delete(new_key)?;
@@ -198,45 +197,52 @@ impl Object<TransactionDB> for BitObjectBst {
 ///所有的field连续存入一遍连续的内存区中
 /// [C++ Binary Search Tree array implementation](https://www.daniweb.com/programming/software-development/threads/466340/c-binary-search-tree-array-implementation)
 /// [ArrayBinarySearchTree.java](http://faculty.washington.edu/moishe/javademos/jss2/ArrayBinarySearchTree.java)
-pub(crate) struct BitFieldSorted {
+/// [binary-search-tree(not array)](https://www.geeksforgeeks.org/binary-search-tree-set-1-search-and-insertion/?ref=lbp)
+/// [binary-search-tree(not array)](https://www.javatpoint.com/binary-search-tree)
+pub(crate) struct FieldMaxHeap {
     pub(crate) data: Vec<u8>,
     /// 为bst分配置的空间大小， 默认为256，增加方式 每次增加256个
     bst_capt: isize,
+    // heap: std::collections::BinaryHeap<FieldMeta>,
 }
 
 //每一个字段的byte数的类型
-pub(crate) type SizeBitFieldSorted = i32;
+pub(crate) type SizeFieldMinHeap = i32;
 //字段个数（len）的类型
-pub(crate) type LenBitFieldSorted = i64;
+pub(crate) type LenFieldMinHeap = i64;
 
-impl BitFieldSorted {
-    const SIZE: usize = mem::size_of::<SizeBitFieldSorted>();
-    const BST_OFFSET: isize = 2 * (mem::size_of::<LenBitFieldSorted>() as isize);
+pub(crate) struct FieldMeta {
+    offset: isize,
+}
+
+impl FieldMaxHeap {
+    const SIZE: usize = mem::size_of::<SizeFieldMinHeap>();
+    const BST_OFFSET: isize = 2 * (mem::size_of::<LenFieldMinHeap>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
         let mut bst_capt = 256 as isize;
         if data.is_empty() {
-            data.resize(2 * mem::size_of::<LenBitFieldSorted>() + bst_capt as usize, 0);
+            data.resize(2 * mem::size_of::<LenFieldMinHeap>() + bst_capt as usize, 0);
         } else {
-            unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenBitFieldSorted>() as isize)) as isize; }
+            unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenFieldMinHeap>() as isize)) as isize; }
         }
-        BitFieldSorted { data, bst_capt }
+        FieldMaxHeap { data, bst_capt }
     }
 
     /// 计算字段的偏移位置
     fn field_offset(&self) -> isize {
-        BitFieldSorted::BST_OFFSET + self.bst_capt
+        FieldMaxHeap::BST_OFFSET + self.bst_capt
     }
     /// 返回值true: 字段存在
     pub fn del(&mut self, field: &[u8]) -> bool {
         let (start, field_size) = self.find(field);
         if start >= 0 {
-            let end = start + BitFieldSorted::SIZE as isize + field_size as isize;
+            let end = start + FieldMaxHeap::SIZE as isize + field_size as isize;
             let p = self.data.as_ptr();
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.len() - field_size as usize - BitFieldSorted::SIZE);
+                self.data.set_len(self.len() - field_size as usize - FieldMaxHeap::SIZE);
             }
             true
         } else {
@@ -251,24 +257,24 @@ impl BitFieldSorted {
             true
         } else {
             //把字段加入最后
-            let add = BitFieldSorted::SIZE + field.len();
+            let add = FieldMaxHeap::SIZE + field.len();
             self.data.reserve(add);
             unsafe {
                 let p = self.data.as_mut_ptr().offset(self.len() as isize - add as isize);
                 //写入字段的bytes数量
-                write_int_ptr(p, field.len() as SizeBitFieldSorted);
+                write_int_ptr(p, field.len() as SizeFieldMinHeap);
                 //写入字段
-                ptr::copy_nonoverlapping(field.as_ptr(), p.offset(BitFieldSorted::SIZE as isize), field.len());
+                ptr::copy_nonoverlapping(field.as_ptr(), p.offset(FieldMaxHeap::SIZE as isize), field.len());
                 let len = self.len() + 1;
                 //写入总的字段个数
-                write_int_ptr(self.data.as_mut_ptr(), len as LenBitFieldSorted);
+                write_int_ptr(self.data.as_mut_ptr(), len as LenFieldMinHeap);
             }
             false
         }
     }
 
     pub fn len(&self) -> usize {
-        let l = read_int::<LenBitFieldSorted>(&self.data);
+        let l = read_int::<LenFieldMinHeap>(&self.data);
         return l as usize;
     }
 
@@ -277,14 +283,14 @@ impl BitFieldSorted {
     fn find(&self, field: &[u8]) -> (isize, usize) {
         let l = self.len();
         let p = self.data.as_ptr();
-        let mut offset = mem::size_of::<LenBitFieldSorted>() as isize;
+        let mut offset = self.field_offset();
         unsafe {
             for _i in 0..l {
-                let field_size = read_int_ptr::<SizeBitFieldSorted>(p.offset(offset)) as usize;
-                offset += BitFieldSorted::SIZE as isize;
+                let field_size = read_int_ptr::<SizeFieldMinHeap>(p.offset(offset)) as usize;
+                offset += FieldMaxHeap::SIZE as isize;
                 let f = slice::from_raw_parts(p.offset(offset), field_size);
                 if f == field {
-                    let start = offset - BitFieldSorted::SIZE as isize;
+                    let start = offset - FieldMaxHeap::SIZE as isize;
                     return (start, field_size);
                 }
                 //指向下一个field
@@ -300,14 +306,14 @@ impl BitFieldSorted {
 }
 
 pub(crate) struct BitFieldSortedIt<'a> {
-    data: &'a BitFieldSorted,
+    data: &'a FieldMaxHeap,
     len: isize,
     index: isize,
     offset: isize,
 }
 
 impl<'a> BitFieldSortedIt<'a> {
-    pub fn new(d: &'a BitFieldSorted) -> Self {
+    pub fn new(d: &'a FieldMaxHeap) -> Self {
         BitFieldSortedIt {
             data: d,
             len: 0,
@@ -333,13 +339,13 @@ impl<'a> Iterator for BitFieldSortedIt<'a> {
             if self.len < 1 {
                 return None;
             }
-            self.offset = mem::size_of::<LenBitFieldSorted>() as isize;
+            self.offset = mem::size_of::<LenFieldMinHeap>() as isize;
         }
 
         self.index += 1;
-        let field_size = read_int_ptr::<SizeBitFieldSorted>(unsafe { self.data.data.as_ptr().offset(self.offset) });
+        let field_size = read_int_ptr::<SizeFieldMinHeap>(unsafe { self.data.data.as_ptr().offset(self.offset) });
         let it = FieldItValue {
-            field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + BitFieldSorted::SIZE as isize), field_size as usize) },
+            field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + FieldMaxHeap::SIZE as isize), field_size as usize) },
         };
         return Some(it);
     }
