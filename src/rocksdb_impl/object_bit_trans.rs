@@ -186,7 +186,7 @@ impl<'db> Object<Transaction<'db, TransactionDB>> for FewObjectTrans {
 
     fn remove_key(&self, t: &Transaction<'db, TransactionDB>, key: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
-        if let Some(fv) = t.get(head_key)? {
+        if let Some(fv) = t.get(&head_key)? {
             let few_field = BitField { data: fv };
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);

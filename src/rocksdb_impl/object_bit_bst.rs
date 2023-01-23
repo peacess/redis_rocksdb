@@ -5,20 +5,15 @@ use rocksdb::TransactionDB;
 use crate::{Object, read_int, read_int_ptr, RrError, write_int_ptr};
 use crate::rocksdb_impl::make_key;
 
-/// 这个对应redis中的hash, 字段数据量建议在2048个以内，在遍历数据时，性能比[ObjectImp]好
-/// 使用一个大的数组把key的值存下，以方便访问全部的field，与[ObjectImp]相比需要多维护一个数组，当field数量不多时，性能比较好
-/// 所有的key以数组方式存入，有先后关系。如果删除其中的一个field其后的数据，会平移。
-///
-/// 数据特点：
-/// 有field变动的性能，是O(N)，所以数据不能多
-/// 读取数据时O(1)
-pub struct BitObject {}
+/// bst -- Binary Search Tree
+/// 字段使用二叉查找树进行，增删改查管理
+pub struct BitObjectBst {}
 
-impl Object<TransactionDB> for BitObject {
+impl Object<TransactionDB> for BitObjectBst {
     fn del(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut f = BitField::new(fv);
+            let mut f = BitFieldSorted::new(fv);
             f.del(field);
             t.put(&head_key, &f.data)?;
         }
@@ -36,7 +31,7 @@ impl Object<TransactionDB> for BitObject {
         }
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut f = BitField { data: fv };
+            let mut f = BitFieldSorted::new(fv);
             for field in fields {
                 if f.del(field) {
                     count += 1;
@@ -63,7 +58,7 @@ impl Object<TransactionDB> for BitObject {
     fn get_all(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitFieldSorted::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -83,7 +78,7 @@ impl Object<TransactionDB> for BitObject {
     fn keys(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitFieldSorted::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 re.push(field.field.to_vec());
@@ -97,7 +92,7 @@ impl Object<TransactionDB> for BitObject {
     fn len(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<i64>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitFieldSorted::new(fv);
             Ok(Some(few_field.len() as i64))
         } else {
             return Ok(None);
@@ -120,11 +115,11 @@ impl Object<TransactionDB> for BitObject {
     fn set(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let mut few_field = BitField { data: fv };
+            let mut few_field = BitFieldSorted::new(fv);
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         } else {
-            let mut few_field = BitField { data: Vec::with_capacity(mem::size_of::<LenBitField>()) };
+            let mut few_field = BitFieldSorted::new(Vec::with_capacity(mem::size_of::<LenBitFieldSorted>()));
             few_field.init();
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
@@ -141,11 +136,11 @@ impl Object<TransactionDB> for BitObject {
 
             let head_key = make_head_key(key);
             if let Some(fv) = t.get(&head_key)? {
-                let mut few_field = BitField { data: fv };
+                let mut few_field = BitFieldSorted::new(fv);
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
             } else {
-                let mut few_field = BitField { data: Vec::with_capacity(mem::size_of::<LenBitField>()) };
+                let mut few_field = BitFieldSorted::new(Vec::with_capacity(mem::size_of::<LenBitFieldSorted>()));
                 few_field.init();
                 few_field.set(field);
                 t.put(&head_key, &few_field.data)?;
@@ -171,7 +166,7 @@ impl Object<TransactionDB> for BitObject {
     fn vals(&self, t: &TransactionDB, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitFieldSorted::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
@@ -191,7 +186,7 @@ impl Object<TransactionDB> for BitObject {
     fn remove_key(&self, t: &TransactionDB, key: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
-            let few_field = BitField { data: fv };
+            let few_field = BitFieldSorted::new(fv);
             for field in few_field.new_field_it() {
                 let new_key = make_key(key, field.field);
                 t.delete(new_key)?;
@@ -203,36 +198,41 @@ impl Object<TransactionDB> for BitObject {
 }
 
 ///所有的field连续存入一遍连续的内存区中
-pub(crate) struct BitField {
+/// [C++ Binary Search Tree array implementation](https://www.daniweb.com/programming/software-development/threads/466340/c-binary-search-tree-array-implementation)
+/// [ArrayBinarySearchTree.java](http://faculty.washington.edu/moishe/javademos/jss2/ArrayBinarySearchTree.java)
+pub(crate) struct BitFieldSorted {
     pub(crate) data: Vec<u8>,
+    /// 为bst分配置的空间大小， 默认为256，增加方式 每次增加256个
+    bst_capt: isize,
 }
 
 //每一个字段的byte数的类型
-pub(crate) type SizeBitField = i32;
+pub(crate) type SizeBitFieldSorted = i32;
 //字段个数（len）的类型
-pub(crate) type LenBitField = u64;
+pub(crate) type LenBitFieldSorted = i64;
 
-impl BitField {
-    const SIZE: usize = mem::size_of::<SizeBitField>();
+impl BitFieldSorted {
+    const SIZE: usize = mem::size_of::<SizeBitFieldSorted>();
+    const BST_OFFSET: isize = 2 * (mem::size_of::<LenBitFieldSorted>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
-        BitField { data }
+        BitFieldSorted { data, bst_capt: 256 }
     }
 
     pub fn init(&mut self) {
         if self.data.is_empty() {
-            self.data.resize(mem::size_of::<LenBitField>(), 0);
+            self.data.resize(mem::size_of::<LenBitFieldSorted>(), 0);
         }
     }
     /// 返回值true: 字段存在
     pub fn del(&mut self, field: &[u8]) -> bool {
         let (start, field_size) = self.find(field);
         if start >= 0 {
-            let end = start + BitField::SIZE as isize + field_size as isize;
+            let end = start + BitFieldSorted::SIZE as isize + field_size as isize;
             let p = self.data.as_ptr();
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.len() - field_size as usize - BitField::SIZE);
+                self.data.set_len(self.len() - field_size as usize - BitFieldSorted::SIZE);
             }
             true
         } else {
@@ -247,24 +247,24 @@ impl BitField {
             true
         } else {
             //把字段加入最后
-            let add = BitField::SIZE + field.len();
+            let add = BitFieldSorted::SIZE + field.len();
             self.data.reserve(add);
             unsafe {
                 let p = self.data.as_mut_ptr().offset(self.len() as isize - add as isize);
                 //写入字段的bytes数量
-                write_int_ptr(p, field.len() as SizeBitField);
+                write_int_ptr(p, field.len() as SizeBitFieldSorted);
                 //写入字段
-                ptr::copy_nonoverlapping(field.as_ptr(), p.offset(BitField::SIZE as isize), field.len());
+                ptr::copy_nonoverlapping(field.as_ptr(), p.offset(BitFieldSorted::SIZE as isize), field.len());
                 let len = self.len() + 1;
                 //写入总的字段个数
-                write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
+                write_int_ptr(self.data.as_mut_ptr(), len as LenBitFieldSorted);
             }
             false
         }
     }
 
     pub fn len(&self) -> usize {
-        let l = read_int::<LenBitField>(&self.data);
+        let l = read_int::<LenBitFieldSorted>(&self.data);
         return l as usize;
     }
 
@@ -273,14 +273,14 @@ impl BitField {
     fn find(&self, field: &[u8]) -> (isize, usize) {
         let l = self.len();
         let p = self.data.as_ptr();
-        let mut offset = mem::size_of::<LenBitField>() as isize;
+        let mut offset = mem::size_of::<LenBitFieldSorted>() as isize;
         unsafe {
             for _i in 0..l {
-                let field_size = read_int_ptr::<SizeBitField>(p.offset(offset)) as usize;
-                offset += BitField::SIZE as isize;
+                let field_size = read_int_ptr::<SizeBitFieldSorted>(p.offset(offset)) as usize;
+                offset += BitFieldSorted::SIZE as isize;
                 let f = slice::from_raw_parts(p.offset(offset), field_size);
                 if f == field {
-                    let start = offset - BitField::SIZE as isize;
+                    let start = offset - BitFieldSorted::SIZE as isize;
                     return (start, field_size);
                 }
                 //指向下一个field
@@ -290,21 +290,21 @@ impl BitField {
         return (-1, 0);
     }
 
-    pub(crate) fn new_field_it(&self) -> BitFieldIt {
-        BitFieldIt::new(self)
+    pub(crate) fn new_field_it(&self) -> BitFieldSortedIt {
+        BitFieldSortedIt::new(self)
     }
 }
 
-pub(crate) struct BitFieldIt<'a> {
-    data: &'a BitField,
+pub(crate) struct BitFieldSortedIt<'a> {
+    data: &'a BitFieldSorted,
     len: isize,
     index: isize,
     offset: isize,
 }
 
-impl<'a> BitFieldIt<'a> {
-    pub fn new(d: &'a BitField) -> Self {
-        BitFieldIt {
+impl<'a> BitFieldSortedIt<'a> {
+    pub fn new(d: &'a BitFieldSorted) -> Self {
+        BitFieldSortedIt {
             data: d,
             len: 0,
             index: -1,
@@ -317,7 +317,7 @@ pub(crate) struct FieldItValue<'a> {
     pub(crate) field: &'a [u8],
 }
 
-impl<'a> Iterator for BitFieldIt<'a> {
+impl<'a> Iterator for BitFieldSortedIt<'a> {
     type Item = FieldItValue<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -329,13 +329,13 @@ impl<'a> Iterator for BitFieldIt<'a> {
             if self.len < 1 {
                 return None;
             }
-            self.offset = mem::size_of::<LenBitField>() as isize;
+            self.offset = mem::size_of::<LenBitFieldSorted>() as isize;
         }
 
         self.index += 1;
-        let field_size = read_int_ptr::<SizeBitField>(unsafe { self.data.data.as_ptr().offset(self.offset) });
+        let field_size = read_int_ptr::<SizeBitFieldSorted>(unsafe { self.data.data.as_ptr().offset(self.offset) });
         let it = FieldItValue {
-            field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + BitField::SIZE as isize), field_size as usize) },
+            field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + BitFieldSorted::SIZE as isize), field_size as usize) },
         };
         return Some(it);
     }
