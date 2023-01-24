@@ -21,6 +21,7 @@ anyhow = "1.0.57"
 #ckb-rocksdb = "0.18.0"
 rocksdb = "0.19.0"
 #rocksdb = { version = "0.18.0", features = ["multi-threaded-cf"] }
+binary-heap-plus = "0.5.0"
 
 [dev-dependencies]
 function_name = "0.2.0"

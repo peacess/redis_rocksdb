@@ -2,13 +2,13 @@ use std::{mem, ptr, slice};
 
 use rocksdb::TransactionDB;
 
-use crate::{Object, read_int, read_int_ptr, RrError, write_int_ptr};
+use crate::{Heap, Object, read_int, read_int_ptr, RrError, write_int_ptr};
 use crate::rocksdb_impl::make_key;
 
 /// 字段名使用 max head存放
-pub struct ObjectMaxHead {}
+pub struct MaxHeap {}
 
-impl Object<TransactionDB> for ObjectMaxHead {
+impl Object<TransactionDB> for MaxHeap {
     fn del(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
@@ -194,6 +194,16 @@ impl Object<TransactionDB> for ObjectMaxHead {
     }
 }
 
+impl Heap<TransactionDB> for MaxHeap{
+    fn pop(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+        todo!()
+    }
+
+    fn push(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
+        todo!()
+    }
+}
+
 ///所有的field连续存入一遍连续的内存区中
 /// [C++ Binary Search Tree array implementation](https://www.daniweb.com/programming/software-development/threads/466340/c-binary-search-tree-array-implementation)
 /// [ArrayBinarySearchTree.java](http://faculty.washington.edu/moishe/javademos/jss2/ArrayBinarySearchTree.java)
@@ -203,7 +213,7 @@ pub(crate) struct FieldMaxHeap {
     pub(crate) data: Vec<u8>,
     /// 为bst分配置的空间大小， 默认为256，增加方式 每次增加256个
     bst_capt: isize,
-    // heap: std::collections::BinaryHeap<FieldMeta>,
+    heap: binary_heap_plus::BinaryHeap<FieldMeta>,
 }
 
 //每一个字段的byte数的类型
@@ -215,6 +225,10 @@ pub(crate) struct FieldMeta {
     offset: isize,
 }
 
+impl Compare<FieldMeta> for FieldMaxHeap{
+
+}
+
 impl FieldMaxHeap {
     const SIZE: usize = mem::size_of::<SizeFieldMinHeap>();
     const BST_OFFSET: isize = 2 * (mem::size_of::<LenFieldMinHeap>() as isize);
@@ -222,12 +236,16 @@ impl FieldMaxHeap {
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
         let mut bst_capt = 256 as isize;
+        let head =
         if data.is_empty() {
             data.resize(2 * mem::size_of::<LenFieldMinHeap>() + bst_capt as usize, 0);
+            unsafe { Vec::from_raw_parts(data.as_mut_ptr().offset(FieldMaxHeap::BST_OFFSET as isize), 0, bst_capt as usize) }
         } else {
             unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenFieldMinHeap>() as isize)) as isize; }
+            let len = read_int::<LenFieldMinHeap>(&data) as usize;
+            unsafe { Vec::from_raw_parts(data.as_mut_ptr().offset(FieldMaxHeap::BST_OFFSET as isize), len, bst_capt as usize) }
         }
-        FieldMaxHeap { data, bst_capt }
+        FieldMaxHeap { data, bst_capt, heap: binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head, false) }
     }
 
     /// 计算字段的偏移位置
