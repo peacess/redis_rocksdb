@@ -1,4 +1,5 @@
 use std::{mem, ptr, slice};
+use std::cmp::Ordering;
 
 use rocksdb::TransactionDB;
 
@@ -7,192 +8,6 @@ use crate::rocksdb_impl::make_key;
 
 /// 字段名使用 max head存放
 pub struct MaxHeap {}
-
-impl Object<TransactionDB> for MaxHeap {
-    fn del(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<(), RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(&head_key)? {
-            let mut f = FieldMaxHeap::new(fv);
-            f.del(field);
-            t.put(&head_key, &f.data)?;
-        }
-        let new_key = make_key(key, field);
-        t.delete(&new_key)?;
-
-        Ok(())
-    }
-
-    fn dels(&self, t: &TransactionDB, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError> {
-        let mut count = 0;
-        for f in fields {
-            let new_key = make_key(key, f);
-            t.delete(&new_key)?;
-        }
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(&head_key)? {
-            let mut f = FieldMaxHeap::new(fv);
-            for field in fields {
-                if f.del(field) {
-                    count += 1;
-                }
-            }
-            t.put(&head_key, &f.data)?;
-        }
-
-        Ok(count)
-    }
-
-    fn exists(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<bool, RrError> {
-        let new_key = make_key(key, field);
-        let old = t.get(&new_key)?;
-        Ok(old.is_some())
-    }
-
-    fn get(&self, t: &TransactionDB, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
-        let new_key = make_key(key, field);
-        let v = t.get(&new_key)?;
-        return Ok(v);
-    }
-
-    fn get_all(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(head_key)? {
-            let few_field = FieldMaxHeap::new(fv);
-            let mut re = Vec::with_capacity(few_field.len());
-            for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
-                let v = t.get(new_key)?;
-                if let Some(v) = v {
-                    re.push((field.field.to_vec(), v));
-                } else {
-                    re.push((field.field.to_vec(), vec![]));
-                }
-            }
-            Ok(Some(re))
-        } else {
-            return Ok(None);
-        }
-    }
-
-    fn keys(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(head_key)? {
-            let few_field = FieldMaxHeap::new(fv);
-            let mut re = Vec::with_capacity(few_field.len());
-            for field in few_field.new_field_it() {
-                re.push(field.field.to_vec());
-            }
-            Ok(Some(re))
-        } else {
-            return Ok(None);
-        }
-    }
-
-    fn len(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<i64>, RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(head_key)? {
-            let few_field = FieldMaxHeap::new(fv);
-            Ok(Some(few_field.len() as i64))
-        } else {
-            return Ok(None);
-        }
-    }
-
-    fn mget(&self, t: &TransactionDB, key: &[u8], fields: &[&[u8]]) -> Result<Vec<Option<Vec<u8>>>, RrError> {
-        let mut values = Vec::with_capacity(fields.len());
-        for f in fields {
-            let new_key = make_key(key, f);
-            if let Some(v) = t.get(new_key)? {
-                values.push(Some(v));
-            } else {
-                values.push(None);
-            }
-        }
-        Ok(values)
-    }
-
-    fn set(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(&head_key)? {
-            let mut few_field = FieldMaxHeap::new(fv);
-            few_field.set(field);
-            t.put(&head_key, &few_field.data)?;
-        } else {
-            let mut few_field = FieldMaxHeap::new(vec![]);
-            few_field.set(field);
-            t.put(&head_key, &few_field.data)?;
-        }
-        let new_key = make_key(key, field);
-        t.put(&new_key, value)?;
-        Ok(())
-    }
-
-    fn set_not_exist(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
-        let new_key = make_key(key, field);
-        if let None = t.get(&new_key)? {
-            t.put(new_key, value)?;
-
-            let head_key = make_head_key(key);
-            if let Some(fv) = t.get(&head_key)? {
-                let mut few_field = FieldMaxHeap::new(fv);
-                few_field.set(field);
-                t.put(&head_key, &few_field.data)?;
-            } else {
-                let mut few_field = FieldMaxHeap::new(vec![]);
-                few_field.set(field);
-                t.put(&head_key, &few_field.data)?;
-            }
-
-            return Ok(1);
-        } else {
-            return Ok(0);
-        }
-    }
-
-    fn set_exist(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
-        let new_key = make_key(key, field);
-        if let Some(_) = t.get(&new_key)? {
-            t.put(new_key, value)?;
-            //由于key是存在的，所以这里不用再修 head key了
-            return Ok(1);
-        } else {
-            return Ok(0);
-        }
-    }
-
-    fn vals(&self, t: &TransactionDB, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(head_key)? {
-            let few_field = FieldMaxHeap::new(fv);
-            let mut re = Vec::with_capacity(few_field.len());
-            for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
-                let v = t.get(new_key)?;
-                if let Some(v) = v {
-                    re.push(v);
-                } else {
-                    re.push(vec![]);
-                }
-            }
-            Ok(re)
-        } else {
-            return Ok(vec![]);
-        }
-    }
-
-    fn remove_key(&self, t: &TransactionDB, key: &[u8]) -> Result<(), RrError> {
-        let head_key = make_head_key(key);
-        if let Some(fv) = t.get(&head_key)? {
-            let few_field = FieldMaxHeap::new(fv);
-            for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
-                t.delete(new_key)?;
-            }
-            t.delete(&head_key)?;
-        }
-        return Ok(());
-    }
-}
 
 impl Heap<TransactionDB> for MaxHeap{
     fn pop(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
@@ -213,7 +28,7 @@ pub(crate) struct FieldMaxHeap {
     pub(crate) data: Vec<u8>,
     /// 为bst分配置的空间大小， 默认为256，增加方式 每次增加256个
     bst_capt: isize,
-    heap: binary_heap_plus::BinaryHeap<FieldMeta>,
+    heap: Option<binary_heap_plus::BinaryHeap<FieldMeta>>,
 }
 
 //每一个字段的byte数的类型
@@ -225,9 +40,6 @@ pub(crate) struct FieldMeta {
     offset: isize,
 }
 
-impl Compare<FieldMeta> for FieldMaxHeap{
-
-}
 
 impl FieldMaxHeap {
     const SIZE: usize = mem::size_of::<SizeFieldMinHeap>();
@@ -236,7 +48,7 @@ impl FieldMaxHeap {
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
         let mut bst_capt = 256 as isize;
-        let head =
+        let head_array =
         if data.is_empty() {
             data.resize(2 * mem::size_of::<LenFieldMinHeap>() + bst_capt as usize, 0);
             unsafe { Vec::from_raw_parts(data.as_mut_ptr().offset(FieldMaxHeap::BST_OFFSET as isize), 0, bst_capt as usize) }
@@ -244,8 +56,10 @@ impl FieldMaxHeap {
             unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenFieldMinHeap>() as isize)) as isize; }
             let len = read_int::<LenFieldMinHeap>(&data) as usize;
             unsafe { Vec::from_raw_parts(data.as_mut_ptr().offset(FieldMaxHeap::BST_OFFSET as isize), len, bst_capt as usize) }
-        }
-        FieldMaxHeap { data, bst_capt, heap: binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head, false) }
+        };
+        let mut t = FieldMaxHeap { data, bst_capt, heap: None };
+        t.heap = Some(FieldHeap{heap: binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head_array, &mut t), false});
+        t
     }
 
     /// 计算字段的偏移位置
@@ -253,7 +67,8 @@ impl FieldMaxHeap {
         FieldMaxHeap::BST_OFFSET + self.bst_capt
     }
     /// 返回值true: 字段存在
-    pub fn del(&mut self, field: &[u8]) -> bool {
+    pub fn pop(&mut self, field: &[u8]) -> bool {
+        let fv =
         let (start, field_size) = self.find(field);
         if start >= 0 {
             let end = start + FieldMaxHeap::SIZE as isize + field_size as isize;
@@ -268,7 +83,7 @@ impl FieldMaxHeap {
         }
     }
     /// 返回值true: 字段存在
-    pub fn set(&mut self, field: &[u8]) -> bool {
+    pub fn push(&mut self, field: &[u8]) -> bool {
         let (start, _) = self.find(field);
         if start >= 0 {
             //已存在，直接返回
@@ -320,6 +135,27 @@ impl FieldMaxHeap {
 
     pub(crate) fn new_field_it(&self) -> BitFieldSortedIt {
         BitFieldSortedIt::new(self)
+    }
+}
+
+impl compare::Compare<FieldMeta> for &mut FieldMaxHeap{
+    fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
+        todo!()
+    }
+}
+
+pub(crate) struct FieldHeap<'a> {
+    heap: binary_heap_plus::BinaryHeap<FieldMeta, &'a mut FieldMaxHeap>,
+
+}
+
+impl<'a> FieldHeap<'a> {
+    pub fn pop(&mut self) -> Option<FieldMeta> {
+        self.heap.pop()
+    }
+    //是否已经存在
+    pub fn push(&mut self, field: FieldMeta) {
+        self.heap.push(field);
     }
 }
 

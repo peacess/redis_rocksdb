@@ -2,7 +2,7 @@
 use crate::{Object, RrError};
 
 ///
-pub trait Heap<T> : Object<T> {
+pub trait Heap<T> {
     /// 弹出堆，
     /// 返回值 0: field, 1: field value
     fn pop(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>,Vec<u8>)>, RrError>;
