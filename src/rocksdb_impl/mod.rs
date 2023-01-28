@@ -1,3 +1,4 @@
+pub use heap::*;
 pub use object_bit::*;
 pub use object_bit_trans::*;
 pub use object_impl::*;
@@ -15,5 +16,6 @@ mod object_bit;
 mod object_bit_trans;
 mod object_impl;
 mod object_trans_impl;
-mod max_heap;
+mod heap;
+mod shared;
 

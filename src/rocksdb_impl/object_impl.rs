@@ -1,8 +1,8 @@
-use std::ptr;
 
 use rocksdb::TransactionDB;
 
 use crate::{Object, RrError};
+use crate::rocksdb_impl::shared::make_key;
 
 /// 这个集合适合字段数量比较少时使用，
 /// 实现，把所有的字段名存放到一个key中，这样方便于对整个字段的管理，同样也会产生一个问题，就是不要有太多的字段
@@ -129,17 +129,3 @@ impl Object<TransactionDB> for ObjectImp {
     }
 }
 
-pub(crate) fn make_key(key: &[u8], field: &[u8]) -> Vec<u8> {
-    let mut new_key = Vec::with_capacity(key.len() + field.len() + 3);
-    unsafe {//这里使用性能更高的 copy_nonoverlapping
-        let mut p = new_key.as_mut_ptr();
-        ptr::copy_nonoverlapping(key.as_ptr(), p, key.len());
-        p = p.offset(key.len() as isize);
-        *p = ':' as u8;
-        *(p.offset(1)) = '_' as u8;
-        *(p.offset(2)) = '_' as u8;
-        p = p.offset(3);
-        ptr::copy_nonoverlapping(field.as_ptr(), p, field.len());
-    }
-    return new_key;
-}

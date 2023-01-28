@@ -1,7 +1,8 @@
 use rocksdb::{Transaction, TransactionDB};
 
 use crate::{Object, RrError};
-use crate::rocksdb_impl::{BitField, make_head_key, make_key};
+use crate::rocksdb_impl::BitField;
+use crate::rocksdb_impl::shared::{make_head_key, make_key};
 
 /// 这个集合适合字段数量比较少时使用，
 /// 实现，把所有的字段名存放到一个key中，这样方便于对整个字段的管理，同样也会产生一个问题，就是不要有太多的字段

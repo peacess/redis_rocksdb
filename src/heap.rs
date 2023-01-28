@@ -1,11 +1,10 @@
+use crate::RrError;
 
-use crate::{Object, RrError};
-
-///
+/// 二叉堆（binary heap）
 pub trait Heap<T> {
-    /// 弹出堆，
+    /// 弹出堆中的元素（如果为最小堆，就是最小值，如果是最大堆就是最大值）
     /// 返回值 0: field, 1: field value
-    fn pop(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>,Vec<u8>)>, RrError>;
-    /// 此方法与 [Object::set]功能相同
+    fn pop(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError>;
+    ///
     fn push(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
 }
