@@ -4,6 +4,7 @@ Feature list
 1. redis list
 2. Object, key+field
 3. ObjectBit, a bit object 
+4. Max/Min binary heap(zero copy)
 # Sample
 see the [test](./tests/_redis_rocksdb/test_list_impl.rs)
 ```rust
