@@ -1,5 +1,4 @@
-use crate::{Bytes, LenType};
-use crate::RrError;
+use crate::{Bytes, LenType, RrError};
 
 pub trait RedisList {
     fn list_blpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError>;

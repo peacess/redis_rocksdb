@@ -14,7 +14,10 @@ pub enum Direction {
     Right,
 }
 
+/// 类型：表示成员或字段的总个数
 pub type LenType = u32;
+/// 类型：表示成员或字段名字的长度bytes
+pub type BytesType = i32;
 
 pub const BYTES_LEN_TYPE: usize = mem::size_of::<LenType>();
 

@@ -1,11 +1,11 @@
-use crate::RrError;
+use crate::{LenType, RrError};
 
 /// 可以存储大量的数据，在遍历数据时，性能不如redis hash
 pub trait Object<T> {
     /// 删除指定的字段，并返回对应的值，如果没有返回None
     fn del(&self, t: &T, key: &[u8], field: &[u8]) -> Result<(), RrError>;
     /// 返回被成功删除字段的数量，不包括的字段被忽略
-    fn dels(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<i64, RrError>;
+    fn dels(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<LenType, RrError>;
     /// true: 表示存在, false: key或field不存在
     fn exists(&self, t: &T, key: &[u8], field: &[u8]) -> Result<bool, RrError>;
     ///
@@ -15,7 +15,7 @@ pub trait Object<T> {
     /// 返回所有的字段
     fn keys(&self, t: &T, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError>;
     /// 返回字段的数量
-    fn len(&self, t: &T, key: &[u8]) -> Result<Option<i64>, RrError>;
+    fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError>;
     /// 返回值与请求顺序一样，如果字段不存在值为Ｎone
     fn mget(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<Vec<Option<Vec<u8>>>, RrError>;
     ///

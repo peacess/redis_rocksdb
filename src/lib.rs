@@ -7,6 +7,7 @@ pub use rocksdb_impl::*;
 pub use sorted_set::*;
 pub use stack::*;
 pub use types::*;
+pub use wrap_db::*;
 
 mod list;
 mod sorted_set;
@@ -17,4 +18,5 @@ mod key_value;
 mod stack;
 mod object;
 mod heap;
+mod wrap_db;
 

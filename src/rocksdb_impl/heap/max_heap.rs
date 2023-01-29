@@ -1,14 +1,36 @@
-use rocksdb::TransactionDB;
-
-use crate::{Heap, RrError};
+use crate::{Heap, LenType, RrError, WrapDb};
 use crate::rocksdb_impl::heap::heap::{FieldHeap, MaxHeapCompare};
 use crate::rocksdb_impl::shared::{make_head_key, make_key};
 
-/// 字段名使用 max head存放
+/// 字段名使用 max binary head存放
 pub struct MaxHeap {}
 
-impl Heap<TransactionDB> for MaxHeap {
-    fn pop(&self, t: &TransactionDB, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+impl<T: WrapDb> Heap<T> for MaxHeap {
+    fn peek(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+        let head_key = make_head_key(key);
+        let mut heap = {
+            match t.get(&head_key)? {
+                None => return Ok(None),
+                Some(v) => FieldHeap::new(v)
+            }
+        };
+        let p = &mut heap as *mut _;
+        heap.init(MaxHeapCompare { heap: p });
+        let field = match heap.peek() {
+            None => return Ok(None),
+            Some(f) => f
+        };
+        let field_key = make_key(key, &field);
+        let v = {
+            match t.get(&field_key)? {
+                None => vec![],
+                Some(v) => v
+            }
+        };
+        Ok(Some((field, v)))
+    }
+
+    fn pop(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
         let head_key = make_head_key(key);
         let mut heap = {
             match t.get(&head_key)? {
@@ -24,7 +46,7 @@ impl Heap<TransactionDB> for MaxHeap {
         };
         let field_key = make_key(key, &field);
         let v = {
-            match t.get(field_key)? {
+            match t.get(&field_key)? {
                 None => vec![],
                 Some(v) => v
             }
@@ -33,10 +55,9 @@ impl Heap<TransactionDB> for MaxHeap {
         Ok(Some((field, v)))
     }
 
-    fn push(&self, t: &TransactionDB, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
+    fn push(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         let field_key = make_key(key, field);
-        /// 由于[rocksdb::TransactionDB]没有[rocksdb::DB::key_may_exist]方法，所以只能取一次key value
-        if t.get(&field_key)?.is_none() {
+        if !t.exist(&field_key)? {
             let head_key = make_head_key(key);
             let mut heap = {
                 match t.get(&head_key)? {
@@ -52,8 +73,28 @@ impl Heap<TransactionDB> for MaxHeap {
         t.put(&field_key, value)?;
         Ok(())
     }
+
+    fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError> {
+        let head_key = make_head_key(key);
+        match t.get(&head_key)? {
+            None => return Ok(None),
+            Some(v) => Ok(Some(FieldHeap::<MaxHeapCompare>::new(v).len() as LenType))
+        }
+    }
 }
 
+#[cfg(test)]
+mod test {
+    use crate::Heap;
+    use crate::MaxHeap;
+
+    #[test]
+    fn test_max_heap_transactiondb() {
+        let heap = MaxHeap {};
+        let key = vec![0 as u8, 1, 2];
+        let f = heap.pop(&key);
+    }
+}
 
 
 

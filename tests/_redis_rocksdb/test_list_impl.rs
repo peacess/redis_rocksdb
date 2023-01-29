@@ -1,24 +1,16 @@
 use std::{fs, path};
 
-use ckb_rocksdb::prelude::Open;
-use ckb_rocksdb::TransactionDB;
 use function_name::named;
+use rocksdb::TransactionDB;
 
-use redis_rocksdb::{RedisList, RedisRocksdb, RedisHash, Stack};
+use redis_rocksdb::{RedisList, RedisRocksdb, Stack};
+use crate::_redis_rocksdb::kits::open_transaction_db;
 
-pub fn open_db(name: &str) -> TransactionDB {
-    let file_name = format!("temp/{}.db", name);
-    let db_path = path::Path::new(&file_name);
-    if !db_path.exists() {
-        fs::create_dir_all(db_path).expect("");
-    }
-    TransactionDB::open_default(db_path).expect("")
-}
 
 #[named]
 #[test]
 fn test_list_lpush() {
-    let db = open_db(function_name!());
+    let db = open_transaction_db(file!(),function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
@@ -38,14 +30,14 @@ fn test_list_lpush() {
     let get_value = redis_db.list_index(&key, 1).expect("");
     assert_eq!(value, get_value);
 
-    redis_db.hash_len("".as_bytes());
-    redis_db.len("".as_bytes());
+    // redis_db.hash_len("".as_bytes());
+    redis_db.len(&"".as_bytes());
 }
 
 #[named]
 #[test]
 fn test_list_rpush() {
-    let db = open_db(function_name!());
+    let db = open_transaction_db(file!(),function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
@@ -69,7 +61,7 @@ fn test_list_rpush() {
 #[named]
 #[test]
 fn test_list_lr_pop() {
-    let db = open_db(function_name!());
+    let db = open_transaction_db(file!(),function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1];
@@ -115,7 +107,7 @@ fn test_list_lr_pop() {
 #[named]
 #[test]
 fn test_list_insert_set_rem_range() {
-    let db = open_db(function_name!());
+    let db = open_transaction_db(file!(),function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];

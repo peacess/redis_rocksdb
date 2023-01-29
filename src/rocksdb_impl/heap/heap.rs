@@ -36,7 +36,8 @@ impl Compare<FieldMeta> for MinHeapCompare {
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
             let r_len = read_int_ptr::<LenFields>(p.offset(r.offset)) as usize;
             let r_v = slice::from_raw_parts(p.offset(r_len as isize + r.offset), r_len);
-            l_v.cmp(r_v)
+            //由于是最小堆，所以反过比较
+            r_v.cmp(l_v)
         }
     }
 }
@@ -92,7 +93,22 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     fn field_offset(&self) -> isize {
         Self::BST_OFFSET + self.bst_capt
     }
-    /// 返回值true: 字段存在
+    pub fn peek(&mut self) -> Option<Vec<u8>> {
+        let mut heap = FieldHeap::make_heap(self);
+        let v = heap.peek();
+        if let Some(v) = v {
+            let l = self.len();
+            self.set_len(l - 1);
+            let start = v.offset + self.field_offset();
+            let field_size = unsafe { read_int_ptr::<LenFields>(self.data.as_ptr().offset(start)) };
+            let end = start + Self::SIZE as isize + field_size as isize;
+            let re = self.data[start as usize + field_size as usize..end as usize].to_vec();
+            Some(re)
+        } else {
+            None
+        }
+    }
+
     pub fn pop(&mut self) -> Option<Vec<u8>> {
         let mut heap = FieldHeap::make_heap(self);
         let v = heap.pop();
