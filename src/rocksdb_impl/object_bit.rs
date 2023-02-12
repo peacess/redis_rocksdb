@@ -225,7 +225,9 @@ impl BitField {
             let p = self.data.as_ptr();
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.len() - field_size as usize - BitField::SIZE);
+                self.data.set_len(self.data.len() - field_size as usize - BitField::SIZE);
+                let len = self.len() -1;
+                write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
             }
             true
         } else {
@@ -243,7 +245,7 @@ impl BitField {
             let add = BitField::SIZE + field.len();
             self.data.reserve(add);
             unsafe {
-                let p = self.data.as_mut_ptr().offset(self.len() as isize - add as isize);
+                let p = self.data.as_mut_ptr().offset(self.data.len() as isize);
                 //写入字段的bytes数量
                 write_int_ptr(p, field.len() as SizeBitField);
                 //写入字段
@@ -251,6 +253,7 @@ impl BitField {
                 let len = self.len() + 1;
                 //写入总的字段个数
                 write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
+                self.data.set_len(self.data.len() + add)
             }
             false
         }
@@ -314,15 +317,16 @@ impl<'a> Iterator for BitFieldIt<'a> {
     type Item = FieldItValue<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.len {
-            return None;
-        }
         if self.index < 0 {
             self.len = self.data.len() as isize;
             if self.len < 1 {
                 return None;
             }
             self.offset = mem::size_of::<LenBitField>() as isize;
+        }
+
+        if self.index >= self.len -1 {
+            return None;
         }
 
         self.index += 1;

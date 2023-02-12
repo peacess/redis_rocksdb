@@ -13,8 +13,9 @@ fn test_object() {
     let key = vec![0 as u8, 1, 2];
     let field = vec![6 as u8, 7, 8];
     let value = "data".to_owned();
-    //, Box::new(RedisRocksdb::bit_object())
-    let objects: Vec<Box<dyn Object<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::object())];
+
+    let objects: Vec<Box<dyn Object<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::object()),Box::new(RedisRocksdb::bit_object())];
+    // let objects: Vec<Box<dyn Object<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::bit_object())];
 
     for object in objects {
         object.remove_key(&wrap_db, &key);//删除所有内容，以便多次测试
