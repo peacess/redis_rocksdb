@@ -81,6 +81,26 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
             Some(v) => Ok(Some(FieldHeap::<MaxHeapCompare>::new(v).len() as LenType))
         }
     }
+
+    fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
+        let head_key = make_head_key(key);
+        let mut heap = {
+            match t.get(&head_key)? {
+                None => return Ok(()),
+                Some(v) => FieldHeap::new(v)
+            }
+        };
+        let p = &mut heap as *mut _;
+        heap.init(MaxHeapCompare { heap: p });
+        loop {
+            let field = match heap.pop() {
+                None => return Ok(()),
+                Some(f) => f
+            };
+            let field_key = make_field_key(key, &field);
+            t.delete(&field_key)?;
+        }
+    }
 }
 
 #[cfg(test)]

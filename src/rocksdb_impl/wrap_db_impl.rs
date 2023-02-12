@@ -36,7 +36,7 @@ impl<'a> WrapDb for WrapTransactionDB<'a> {
 }
 
 pub struct WrapTransaction<'a> {
-    db: &'a Transaction<'a, TransactionDB>,
+    pub db: &'a Transaction<'a, TransactionDB>,
 }
 
 impl<'a> WrapDb for WrapTransaction<'a> {
@@ -68,7 +68,7 @@ impl<'a> WrapDb for WrapTransaction<'a> {
 }
 
 pub struct WrapRocksDb<'a> {
-    db: &'a rocksdb::DB,
+    pub db: &'a rocksdb::DB,
 }
 
 impl<'a> WrapDb for WrapRocksDb<'a> {

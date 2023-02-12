@@ -135,7 +135,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let add = Self::SIZE + field.len();
         self.data.reserve(add);
         unsafe {
-            let p = self.data.as_mut_ptr().offset(self.len() as isize - add as isize);
+            let p = self.data.as_mut_ptr().offset(self.data.len() as isize);
             //写入字段的bytes数量
             write_int_ptr(p, field.len() as SizeField);
             //写入字段
@@ -143,6 +143,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             let len = self.len() + 1;
             //写入总的字段个数
             write_int_ptr(self.data.as_mut_ptr(), len as LenFields);
+            self.data.set_len(self.data.len() + add)
         }
     }
 

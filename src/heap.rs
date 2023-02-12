@@ -12,4 +12,7 @@ pub trait Heap<T> {
     fn push(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
 
     fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError>;
+
+    /// 删除指定的key，及所有字段
+    fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError>;
 }
