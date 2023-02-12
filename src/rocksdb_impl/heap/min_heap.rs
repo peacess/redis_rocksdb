@@ -1,6 +1,6 @@
 use crate::{Heap, LenType, RrError, WrapDb};
 use crate::rocksdb_impl::heap::heap::{FieldHeap, MinHeapCompare};
-use crate::rocksdb_impl::shared::{make_head_key, make_key};
+use crate::rocksdb_impl::shared::{make_head_key, make_field_key};
 
 /// 字段名使用 min binary head存放
 pub struct MinHeap {}
@@ -20,7 +20,7 @@ impl<T: WrapDb> Heap<T> for MinHeap {
             None => return Ok(None),
             Some(f) => f
         };
-        let field_key = make_key(key, &field);
+        let field_key = make_field_key(key, &field);
         let v = {
             match t.get(&field_key)? {
                 None => vec![],
@@ -44,7 +44,7 @@ impl<T: WrapDb> Heap<T> for MinHeap {
             None => return Ok(None),
             Some(f) => f
         };
-        let field_key = make_key(key, &field);
+        let field_key = make_field_key(key, &field);
         let v = {
             match t.get(&field_key)? {
                 None => vec![],
@@ -56,7 +56,7 @@ impl<T: WrapDb> Heap<T> for MinHeap {
     }
 
     fn push(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
-        let field_key = make_key(key, field);
+        let field_key = make_field_key(key, field);
         if !t.exist(&field_key)? {
             let head_key = make_head_key(key);
             let mut heap = {

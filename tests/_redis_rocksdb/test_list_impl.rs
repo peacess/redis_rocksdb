@@ -4,13 +4,13 @@ use function_name::named;
 use rocksdb::TransactionDB;
 
 use redis_rocksdb::{RedisList, RedisRocksdb, Stack};
-use crate::_redis_rocksdb::kits::open_transaction_db;
 
+use crate::_redis_rocksdb::kits::open_transaction_db;
 
 #[named]
 #[test]
 fn test_list_lpush() {
-    let db = open_transaction_db(file!(),function_name!());
+    let db = open_transaction_db(file!(), function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
@@ -37,7 +37,7 @@ fn test_list_lpush() {
 #[named]
 #[test]
 fn test_list_rpush() {
-    let db = open_transaction_db(file!(),function_name!());
+    let db = open_transaction_db(file!(), function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];
@@ -61,7 +61,7 @@ fn test_list_rpush() {
 #[named]
 #[test]
 fn test_list_lr_pop() {
-    let db = open_transaction_db(file!(),function_name!());
+    let db = open_transaction_db(file!(), function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1];
@@ -107,7 +107,7 @@ fn test_list_lr_pop() {
 #[named]
 #[test]
 fn test_list_insert_set_rem_range() {
-    let db = open_transaction_db(file!(),function_name!());
+    let db = open_transaction_db(file!(), function_name!());
     let mut redis_db = RedisRocksdb::new(db);
     let key = function_name!().as_bytes();
     let value = vec![1, 23, 6];

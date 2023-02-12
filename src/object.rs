@@ -4,7 +4,7 @@ use crate::{LenType, RrError};
 pub trait Object<T> {
     /// 删除指定的字段，并返回对应的值，如果没有返回None
     fn del(&self, t: &T, key: &[u8], field: &[u8]) -> Result<(), RrError>;
-    /// 返回被成功删除字段的数量，不包括的字段被忽略
+    /// 返回被成功删除字段的数量，如果字段不存在，也计算在成功删除中
     fn dels(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<LenType, RrError>;
     /// true: 表示存在, false: key或field不存在
     fn exists(&self, t: &T, key: &[u8], field: &[u8]) -> Result<bool, RrError>;

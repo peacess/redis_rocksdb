@@ -1,7 +1,7 @@
 use std::{mem, ptr, slice};
 
 use crate::{LenType, Object, read_int, read_int_ptr, RrError, WrapDb, write_int_ptr};
-use crate::rocksdb_impl::shared::{make_head_key, make_key};
+use crate::rocksdb_impl::shared::{make_head_key, make_field_key};
 
 /// 这个对应redis中的hash, 字段数据量建议在2048个以内，在遍历数据时，性能比[ObjectImp]好
 /// 使用一个大的数组把key的值存下，以方便访问全部的field，与[ObjectImp]相比需要维护一个数组，当field数量不多时，性能比较好
@@ -20,7 +20,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             f.del(field);
             t.put(&head_key, &f.data)?;
         }
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         t.delete(&new_key)?;
 
         Ok(())
@@ -29,31 +29,29 @@ impl<T: WrapDb> Object<T> for BitObject {
     fn dels(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<LenType, RrError> {
         let mut count = 0;
         for f in fields {
-            let new_key = make_key(key, f);
+            let new_key = make_field_key(key, f);
             t.delete(&new_key)?;
+            count += 1;
         }
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
             let mut f = BitField::new(fv);
             for field in fields {
-                if f.del(field) {
-                    count += 1;
-                }
+                f.del(field);
             }
             t.put(&head_key, &f.data)?;
         }
-
         Ok(count)
     }
 
     fn exists(&self, t: &T, key: &[u8], field: &[u8]) -> Result<bool, RrError> {
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         let old = t.get(&new_key)?;
         Ok(old.is_some())
     }
 
     fn get(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         let v = t.get(&new_key)?;
         return Ok(v);
     }
@@ -64,7 +62,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             let few_field = BitField::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
+                let new_key = make_field_key(key, field.field);
                 let v = t.get(&new_key)?;
                 if let Some(v) = v {
                     re.push((field.field.to_vec(), v));
@@ -105,7 +103,7 @@ impl<T: WrapDb> Object<T> for BitObject {
     fn mget(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<Vec<Option<Vec<u8>>>, RrError> {
         let mut values = Vec::with_capacity(fields.len());
         for f in fields {
-            let new_key = make_key(key, f);
+            let new_key = make_field_key(key, f);
             if let Some(v) = t.get(&new_key)? {
                 values.push(Some(v));
             } else {
@@ -126,13 +124,13 @@ impl<T: WrapDb> Object<T> for BitObject {
             few_field.set(field);
             t.put(&head_key, &few_field.data)?;
         }
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         t.put(&new_key, value)?;
         Ok(())
     }
 
     fn set_not_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         if let None = t.get(&new_key)? {
             t.put(&new_key, value)?;
 
@@ -154,7 +152,7 @@ impl<T: WrapDb> Object<T> for BitObject {
     }
 
     fn set_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
-        let new_key = make_key(key, field);
+        let new_key = make_field_key(key, field);
         if let Some(_) = t.get(&new_key)? {
             t.put(&new_key, value)?;
             //由于key是存在的，所以这里不用再修 head key了
@@ -170,7 +168,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             let few_field = BitField::new(fv);
             let mut re = Vec::with_capacity(few_field.len());
             for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
+                let new_key = make_field_key(key, field.field);
                 let v = t.get(&new_key)?;
                 if let Some(v) = v {
                     re.push(v);
@@ -189,7 +187,7 @@ impl<T: WrapDb> Object<T> for BitObject {
         if let Some(fv) = t.get(&head_key)? {
             let few_field = BitField::new(fv);
             for field in few_field.new_field_it() {
-                let new_key = make_key(key, field.field);
+                let new_key = make_field_key(key, field.field);
                 t.delete(&new_key)?;
             }
             t.delete(&head_key)?;
