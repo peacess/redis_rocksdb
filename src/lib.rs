@@ -1,3 +1,4 @@
+pub use bptree::*;
 pub use error::RrError;
 pub use heap::*;
 pub use key_value::*;
@@ -19,4 +20,5 @@ mod stack;
 mod object;
 mod heap;
 mod wrap_db;
+mod bptree;
 

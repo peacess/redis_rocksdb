@@ -1,6 +1,6 @@
 use crate::{Heap, LenType, RrError, WrapDb};
 use crate::rocksdb_impl::heap::heap::{FieldHeap, MinHeapCompare};
-use crate::rocksdb_impl::shared::{make_head_key, make_field_key};
+use crate::rocksdb_impl::shared::{make_field_key, make_head_key};
 
 /// 字段名使用 min binary head存放
 pub struct MinHeap {}

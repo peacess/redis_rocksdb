@@ -18,7 +18,7 @@ fn test_object() {
     // let objects: Vec<Box<dyn Object<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::bit_object())];
 
     for object in objects {
-        object.remove_key(&wrap_db, &key);//删除所有内容，以便多次测试
+        object.del_key(&wrap_db, &key);//删除所有内容，以便多次测试
         {//测试没有数据的情况
             let re = object.del(&wrap_db, &key, &field);
             assert_eq!((), re.expect(""));
@@ -43,7 +43,7 @@ fn test_object() {
             let re = object.vals(&wrap_db, &key);
             assert_eq!(Vec::<Vec<u8>>::new(), re.expect(""));
 
-            let re = object.remove_key(&wrap_db, &key);
+            let re = object.del_key(&wrap_db, &key);
             assert_eq!((), re.expect(""));
         }
 

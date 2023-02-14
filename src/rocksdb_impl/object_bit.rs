@@ -1,7 +1,7 @@
 use std::{mem, ptr, slice};
 
 use crate::{LenType, Object, read_int, read_int_ptr, RrError, WrapDb, write_int_ptr};
-use crate::rocksdb_impl::shared::{make_head_key, make_field_key};
+use crate::rocksdb_impl::shared::{make_field_key, make_head_key};
 
 /// 这个对应redis中的hash, 字段数据量建议在2048个以内，在遍历数据时，性能比[ObjectImp]好
 /// 使用一个大的数组把key的值存下，以方便访问全部的field，与[ObjectImp]相比需要维护一个数组，当field数量不多时，性能比较好
@@ -182,7 +182,7 @@ impl<T: WrapDb> Object<T> for BitObject {
         }
     }
 
-    fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
+    fn del_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
         let head_key = make_head_key(key);
         if let Some(fv) = t.get(&head_key)? {
             let few_field = BitField::new(fv);
@@ -226,7 +226,7 @@ impl BitField {
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
                 self.data.set_len(self.data.len() - field_size as usize - BitField::SIZE);
-                let len = self.len() -1;
+                let len = self.len() - 1;
                 write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
             }
             true
@@ -325,7 +325,7 @@ impl<'a> Iterator for BitFieldIt<'a> {
             self.offset = mem::size_of::<LenBitField>() as isize;
         }
 
-        if self.index >= self.len -1 {
+        if self.index >= self.len - 1 {
             return None;
         }
 

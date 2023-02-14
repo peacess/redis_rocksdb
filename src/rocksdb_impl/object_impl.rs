@@ -1,4 +1,5 @@
 use rocksdb::properties::OLDEST_SNAPSHOT_TIME;
+
 use crate::{LenType, Object, RrError, WrapDb};
 use crate::rocksdb_impl::shared::{get_field_from_key, make_field_key};
 
@@ -41,12 +42,12 @@ impl<T: WrapDb> Object<T> for ObjectImp {
         let it = t.prefix_iterator(&new_key);
         for k in it {
             let kk = k?;
-            let field_key = get_field_from_key(key,&kk.0);
+            let field_key = get_field_from_key(key, &kk.0);
             re.push((field_key.to_vec(), kk.1.to_vec()));
         }
-        if re.is_empty(){
+        if re.is_empty() {
             Ok(None)
-        }else{
+        } else {
             Ok(Some(re))
         }
     }
@@ -57,12 +58,12 @@ impl<T: WrapDb> Object<T> for ObjectImp {
         let it = t.prefix_iterator(&new_key);
         for k in it {
             let kk = k?;
-            let field_key = get_field_from_key(key,&kk.0);
+            let field_key = get_field_from_key(key, &kk.0);
             re.push(field_key.to_vec());
         }
-        if re.is_empty(){
+        if re.is_empty() {
             Ok(None)
-        }else {
+        } else {
             Ok(Some(re))
         }
     }
@@ -72,8 +73,8 @@ impl<T: WrapDb> Object<T> for ObjectImp {
         let it = t.prefix_iterator(&new_key);
         let l = it.count();
         if l == 0 {
-            return Ok(None)
-        }else {
+            return Ok(None);
+        } else {
             Ok(Some(l as LenType))
         }
     }
@@ -128,7 +129,7 @@ impl<T: WrapDb> Object<T> for ObjectImp {
         Ok(re)
     }
 
-    fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
+    fn del_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
         let new_key = make_field_key(key, &[]);
         let it = t.prefix_iterator(&new_key);
         for k in it {

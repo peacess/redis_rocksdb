@@ -19,9 +19,9 @@ impl RedisRocksdb {
         return BitObject {};
     }
 
-    pub fn max_heap() -> MaxHeap{ return MaxHeap{};}
+    pub fn max_heap() -> MaxHeap { return MaxHeap {}; }
 
-    pub fn mix_heap() -> MinHeap{return MinHeap{};}
+    pub fn mix_heap() -> MinHeap { return MinHeap {}; }
 
     pub fn get_db(&self) -> &rocksdb::TransactionDB {
         &self.db

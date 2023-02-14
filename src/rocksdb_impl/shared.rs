@@ -23,5 +23,5 @@ pub(crate) fn make_head_key(key: &[u8]) -> Vec<u8> {
 }
 
 pub(crate) fn get_field_from_key<'a>(key: &[u8], field_key: &'a [u8]) -> &'a [u8] {
-    &field_key[key.len()+3..]
+    &field_key[key.len() + 3..]
 }

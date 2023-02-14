@@ -31,5 +31,5 @@ pub trait Object<T> {
     fn vals(&self, t: &T, key: &[u8]) -> Result<Vec<Vec<u8>>, RrError>;
 
     /// 删除指定的key，及所有字段
-    fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError>;
+    fn del_key(&self, t: &T, key: &[u8]) -> Result<(), RrError>;
 }
