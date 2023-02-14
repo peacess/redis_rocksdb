@@ -1,5 +1,6 @@
 use std::{mem, ptr, slice};
 use std::cmp::Ordering;
+use std::mem::ManuallyDrop;
 
 use compare::Compare;
 
@@ -73,9 +74,10 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let mut data = data;
         let mut bst_capt = 256 as isize;
         if data.is_empty() {
-            data.resize(2 * mem::size_of::<LenFields>() + bst_capt as usize, 0);
+            data.resize(Self::BST_OFFSET as usize + bst_capt as usize, 0);
+            unsafe { write_int_ptr(data.as_mut_ptr().offset(mem::size_of::<LenFields>() as isize), bst_capt as LenFields) }
         } else {
-            unsafe { bst_capt = read_int_ptr::<i64>(data.as_ptr().offset(mem::size_of::<LenFields>() as isize)) as isize; }
+            unsafe { bst_capt = read_int_ptr::<LenFields>(data.as_ptr().offset(mem::size_of::<LenFields>() as isize)) as isize; }
         };
         FieldHeap { data, bst_capt, comparer: None }
     }
@@ -85,10 +87,16 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
 
     fn make_heap(&mut self) -> binary_heap_plus::BinaryHeap<FieldMeta, T> {
-        let head_array = unsafe { Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize) };
+        let head_array = unsafe { Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize/mem::size_of::<FieldMeta>()) };
         let t = unsafe { binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head_array, self.comparer.as_ref().expect("").clone(), false) };
         return t;
     }
+
+    fn drop_heap(&mut self, heap: binary_heap_plus::BinaryHeap<FieldMeta, T>) {
+        let mut data = heap.into_vec();
+        let _ = ManuallyDrop::new(data);
+    }
+
     /// 计算字段的偏移位置
     fn field_offset(&self) -> isize {
         Self::BST_OFFSET + self.bst_capt
@@ -97,9 +105,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let mut heap = FieldHeap::make_heap(self);
         let v = heap.peek();
         if let Some(v) = v {
-            let l = self.len();
-            self.set_len(l - 1);
-            let start = v.offset + self.field_offset();
+            let start = v.offset;
             let field_size = unsafe { read_int_ptr::<LenFields>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
             let re = self.data[start as usize + field_size as usize..end as usize].to_vec();
@@ -112,10 +118,11 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     pub fn pop(&mut self) -> Option<Vec<u8>> {
         let mut heap = FieldHeap::make_heap(self);
         let v = heap.pop();
+        self.drop_heap(heap);
         if let Some(v) = v {
             let l = self.len();
             self.set_len(l - 1);
-            let start = v.offset + self.field_offset();
+            let start = v.offset;
             let field_size = unsafe { read_int_ptr::<LenFields>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
             let p = self.data.as_ptr();
@@ -132,10 +139,17 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     /// 由于head结构查找很慢，所以不能插入相同的key
     pub fn push(&mut self, field: &[u8]) {
         //把字段加入最后
+        //检查是否有heap的空间是否够大
+        let len = self.len();
+        if len * mem::size_of::<FieldMeta>() >= self.bst_capt as usize {
+            //todo 分配空间，并更新heap中的offset位置
+        }
+
         let add = Self::SIZE + field.len();
         self.data.reserve(add);
+        let len_data = self.data.len();
         unsafe {
-            let p = self.data.as_mut_ptr().offset(self.data.len() as isize);
+            let p = self.data.as_mut_ptr().offset(len_data as isize);
             //写入字段的bytes数量
             write_int_ptr(p, field.len() as SizeField);
             //写入字段
@@ -145,6 +159,10 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             write_int_ptr(self.data.as_mut_ptr(), len as LenFields);
             self.data.set_len(self.data.len() + add)
         }
+
+        let mut heap = FieldHeap::make_heap(self);
+        heap.push(FieldMeta{offset: len_data as isize });
+        self.drop_heap(heap);
     }
 
     pub fn len(&self) -> usize {

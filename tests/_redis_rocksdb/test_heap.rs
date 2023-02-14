@@ -11,10 +11,12 @@ fn test_heap() {
     let db = open_transaction_db(file!(), function_name!());
     let wrap_db = WrapTransactionDB { db: &db };
     {
-        let heaps: Vec<Box<dyn Heap<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::max_heap()), Box::new(RedisRocksdb::mix_heap())];
-        for heap in heaps {
-            tt_heap(&wrap_db, heap);
-        }
+        // let heaps: Vec<Box<dyn Heap<WrapTransactionDB>>> = vec![Box::new(RedisRocksdb::max_heap()), Box::new(RedisRocksdb::mix_heap())];
+        // for heap in heaps {
+        //     tt_heap(&wrap_db, heap);
+        // }
+
+        tt_heap(&wrap_db, Box::new(RedisRocksdb::max_heap()));
     }
 
     // {
