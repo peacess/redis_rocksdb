@@ -73,5 +73,4 @@ fn tt_heap<T: WrapDb>(db: &T, heap: Box<dyn Heap<T>>) {
         let re = heap.len(db, &key);
         assert_eq!(None, re.expect(""));
     }
-
 }
