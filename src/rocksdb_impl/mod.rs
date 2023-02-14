@@ -1,3 +1,4 @@
+pub use bptree::*;
 pub use heap::*;
 pub use object_bit::*;
 pub use object_impl::*;
@@ -16,4 +17,5 @@ mod object_impl;
 mod heap;
 mod shared;
 mod wrap_db_impl;
+mod bptree;
 
