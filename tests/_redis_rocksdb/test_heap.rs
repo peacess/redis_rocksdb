@@ -54,14 +54,24 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T>) {
         assert_eq!(Some(1), re.expect(""));
         let re = heap.pop(db, &key);
         assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
-    }
-
-    {
         let re = heap.peek(db, &key);
         assert_eq!(None, re.expect(""));
         let re = heap.pop(db, &key);
         assert_eq!(None, re.expect(""));
         let re = heap.len(db, &key);
         assert_eq!(Some(0), re.expect(""));
+    }
+
+    {
+        let re = heap.push(db, &key, &field, value.as_bytes());
+        assert_eq!((), re.expect(""));
+        let re = heap.push(db, &key, &field, value.as_bytes());
+        assert_eq!((), re.expect(""));
+        let re = heap.peek(db, &key);
+        assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
+        let re = heap.len(db, &key);
+        assert_eq!(Some(1), re.expect(""));
+        let re = heap.pop(db, &key);
+        assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
     }
 }

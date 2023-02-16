@@ -66,10 +66,11 @@ pub(crate) struct FieldMeta {
 impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     pub const SIZE: usize = mem::size_of::<SizeField>();
     pub const BST_OFFSET: isize = 2 * (mem::size_of::<LenType>() as isize);
+    pub const BST_EXPAND: isize = 128 * (mem::size_of::<FieldMeta>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
-        let mut bst_capt = 256 as isize;
+        let mut bst_capt = Self::BST_EXPAND;
         if data.is_empty() {
             data.resize(Self::BST_OFFSET as usize + bst_capt as usize, 0);
             unsafe { write_int_ptr(data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), bst_capt as LenType) }
@@ -173,6 +174,22 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
     pub(crate) fn new_field_it(&self) -> FieldIt<'_, T> {
         FieldIt::new(self)
+    }
+
+    fn expand(&mut self) {
+        let expand_size = Self::BST_EXPAND as usize;
+        self.data.reserve(expand_size);
+        unsafe {
+            self.data.set_len(self.len() + expand_size);
+        }
+        let old = self.bst_capt;
+        let len_data = self.data.len();
+        unsafe {
+            let p = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old);
+            ptr::copy(p, p.offset(expand_size as isize), expand_size);
+            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old + expand_size);
+        }
+        self.bst_capt = old + expand_size;
     }
 }
 
