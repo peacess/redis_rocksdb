@@ -52,6 +52,7 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
             }
         };
         t.put(&head_key, &heap.data)?;
+        t.delete(&field_key)?;
         Ok(Some((field, v)))
     }
 
@@ -76,10 +77,11 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
 
     fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError> {
         let head_key = make_head_key(key);
-        match t.get(&head_key)? {
+        let heap = match t.get(&head_key)? {
             None => return Ok(None),
-            Some(v) => Ok(Some(FieldHeap::<MaxHeapCompare>::new(v).len() as LenType))
-        }
+            Some(v) => FieldHeap::<MaxHeapCompare>::new(v)
+        };
+        Ok(Some(heap.len() as LenType))
     }
 
     fn remove_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
@@ -94,12 +96,14 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
         heap.init(MaxHeapCompare { heap: p });
         loop {
             let field = match heap.pop() {
-                None => return Ok(()),
+                None => break,
                 Some(f) => f
             };
             let field_key = make_field_key(key, &field);
             t.delete(&field_key)?;
         }
+        t.delete(&head_key)?;
+        Ok(())
     }
 }
 

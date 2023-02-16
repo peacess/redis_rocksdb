@@ -118,7 +118,7 @@ impl RedisList for RedisRocksdb {
             }
         } else {
             node.set_len_list(zip.len());
-            node.set_len_bytes(zip.as_ref().len() as u32);
+            node.set_len_bytes(zip.as_ref().len() as LenType);
             quick.set_len_list(quick.len_list() - 1);
 
             tr.put(zip_key, zip)?;
@@ -213,7 +213,7 @@ impl RedisList for RedisRocksdb {
             Some(q) => q
         };
 
-        let mut rem_count = 0u32;
+        let mut rem_count = 0u64;
 
         let tr = self.db.transaction();
 
@@ -233,7 +233,7 @@ impl RedisList for RedisRocksdb {
                     quick.modify_node(&tr, list_key.as_ref(), zip_key.as_ref(), &mut zip, node_key.as_ref(), &mut node)?;
                 }
 
-                if rem_count == count as u32 {
+                if rem_count == count as u64 {
                     break;
                 }
                 if let Some(t) = node.right() {
@@ -260,7 +260,7 @@ impl RedisList for RedisRocksdb {
                     quick.modify_node(&tr, list_key.as_ref(), zip_key.as_ref(), &mut zip, node_key.as_ref(), &mut node)?;
                 }
 
-                if rem_count == count as u32 {
+                if rem_count == count as u64 {
                     break;
                 }
                 if let Some(t) = node.left() {
@@ -371,7 +371,7 @@ impl RedisList for RedisRocksdb {
             }
         } else {
             node.set_len_list(zip.len());
-            node.set_len_bytes(zip.as_ref().len() as u32);
+            node.set_len_bytes(zip.as_ref().len() as LenType);
             quick.set_len_list(quick.len_list() - 1);
 
             tr.put(zip_key.as_ref(), zip)?;

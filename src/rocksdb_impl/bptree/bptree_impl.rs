@@ -1,4 +1,1 @@
-
-pub struct BPTreeImpl {
-
-}
+pub struct BPTreeImpl {}

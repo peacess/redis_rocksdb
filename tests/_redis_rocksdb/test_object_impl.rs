@@ -12,7 +12,8 @@ fn test_object() {
         let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
         tt_object(&wrap_db, RedisRocksdb::object());
         tt_object(&wrap_db, RedisRocksdb::bit_object());
-        let trans = wrap_db.db.transaction();
+
+        let trans = redis_db.get_db().transaction();
         let wrap_trans = WrapTransaction { db: &trans };
         tt_object(&wrap_trans, RedisRocksdb::object());
         tt_object(&wrap_trans, RedisRocksdb::bit_object());

@@ -4,7 +4,7 @@ use std::mem::ManuallyDrop;
 
 use compare::Compare;
 
-use crate::{read_int, read_int_ptr, write_int, write_int_ptr};
+use crate::{LenType, read_int, read_int_ptr, write_int, write_int_ptr};
 
 #[derive(Clone)]
 pub(crate) struct MaxHeapCompare {
@@ -15,9 +15,9 @@ impl Compare<FieldMeta> for MaxHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
             let p = (*self.heap).data.as_ptr();
-            let l_len = read_int_ptr::<LenFields>(p.offset(l.offset)) as usize;
+            let l_len = read_int_ptr::<LenType>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
-            let r_len = read_int_ptr::<LenFields>(p.offset(r.offset)) as usize;
+            let r_len = read_int_ptr::<LenType>(p.offset(r.offset)) as usize;
             let r_v = slice::from_raw_parts(p.offset(r_len as isize + r.offset), r_len);
             l_v.cmp(r_v)
         }
@@ -33,9 +33,9 @@ impl Compare<FieldMeta> for MinHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
             let p = (*self.heap).data.as_ptr();
-            let l_len = read_int_ptr::<LenFields>(p.offset(l.offset)) as usize;
+            let l_len = read_int_ptr::<LenType>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
-            let r_len = read_int_ptr::<LenFields>(p.offset(r.offset)) as usize;
+            let r_len = read_int_ptr::<LenType>(p.offset(r.offset)) as usize;
             let r_v = slice::from_raw_parts(p.offset(r_len as isize + r.offset), r_len);
             //由于是最小堆，所以反过比较
             r_v.cmp(l_v)
@@ -56,11 +56,8 @@ pub(crate) struct FieldHeap<T: Compare<FieldMeta> + Clone> {
 
 }
 
-//存放字段名的数据类型
+//存放字段名的数据大小
 pub(crate) type SizeField = i32;
-//存放字段字段个数（len）的数据类型
-pub(crate) type LenFields = i64;
-
 
 pub(crate) struct FieldMeta {
     pub offset: isize,
@@ -68,16 +65,16 @@ pub(crate) struct FieldMeta {
 
 impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     pub const SIZE: usize = mem::size_of::<SizeField>();
-    pub const BST_OFFSET: isize = 2 * (mem::size_of::<LenFields>() as isize);
+    pub const BST_OFFSET: isize = 2 * (mem::size_of::<LenType>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
         let mut bst_capt = 256 as isize;
         if data.is_empty() {
             data.resize(Self::BST_OFFSET as usize + bst_capt as usize, 0);
-            unsafe { write_int_ptr(data.as_mut_ptr().offset(mem::size_of::<LenFields>() as isize), bst_capt as LenFields) }
+            unsafe { write_int_ptr(data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), bst_capt as LenType) }
         } else {
-            unsafe { bst_capt = read_int_ptr::<LenFields>(data.as_ptr().offset(mem::size_of::<LenFields>() as isize)) as isize; }
+            unsafe { bst_capt = read_int_ptr::<LenType>(data.as_ptr().offset(mem::size_of::<LenType>() as isize)) as isize; }
         };
         FieldHeap { data, bst_capt, comparer: None }
     }
@@ -87,7 +84,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
 
     fn make_heap(&mut self) -> binary_heap_plus::BinaryHeap<FieldMeta, T> {
-        let head_array = unsafe { Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize/mem::size_of::<FieldMeta>()) };
+        let head_array = unsafe { Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize / mem::size_of::<FieldMeta>()) };
         let t = unsafe { binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head_array, self.comparer.as_ref().expect("").clone(), false) };
         return t;
     }
@@ -102,9 +99,9 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         Self::BST_OFFSET + self.bst_capt
     }
     pub fn peek(&mut self) -> Option<Vec<u8>> {
-        let mut heap = FieldHeap::make_heap(self);
+        let mut heap = self.make_heap();
         let v = heap.peek();
-        if let Some(v) = v {
+        let pop_v = if let Some(v) = v {
             let start = v.offset;
             let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
@@ -112,24 +109,26 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             Some(re)
         } else {
             None
-        }
+        };
+        self.drop_heap(heap);
+        pop_v
     }
 
     pub fn pop(&mut self) -> Option<Vec<u8>> {
-        let mut heap = FieldHeap::make_heap(self);
+        let mut heap = self.make_heap();
         let v = heap.pop();
         self.drop_heap(heap);
         if let Some(v) = v {
             let l = self.len();
             self.set_len(l - 1);
             let start = v.offset;
-            let field_size = unsafe { read_int_ptr::<LenFields>(self.data.as_ptr().offset(start)) };
+            let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
             let p = self.data.as_ptr();
-            let re = self.data[start as usize + field_size as usize..end as usize].to_vec();
+            let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.len() - field_size as usize - Self::SIZE);
+                self.data.set_len(self.data.len() - field_size as usize - Self::SIZE);
             }
             Some(re)
         } else {
@@ -157,20 +156,20 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             self.data.set_len(self.data.len() + add)
         }
 
-        let mut heap = FieldHeap::make_heap(self);
-        heap.push(FieldMeta{offset: len_data as isize });
+        let mut heap = self.make_heap();
+        heap.push(FieldMeta { offset: len_data as isize });
         self.drop_heap(heap);
         let len = self.len() + 1;
         //写入总的字段个数
-        write_int_ptr(self.data.as_mut_ptr(), len as LenFields);
+        write_int_ptr(self.data.as_mut_ptr(), len as LenType);
     }
 
     pub fn len(&self) -> usize {
-        let l = read_int::<LenFields>(&self.data);
+        let l = read_int::<LenType>(&self.data);
         return l as usize;
     }
     pub fn set_len(&mut self, l: usize) {
-        write_int::<LenFields>(&mut self.data, l as LenFields);
+        write_int::<LenType>(&mut self.data, l as LenType);
     }
     pub(crate) fn new_field_it(&self) -> FieldIt<'_, T> {
         FieldIt::new(self)
@@ -212,7 +211,7 @@ impl<'a, T: Compare<FieldMeta> + Clone> Iterator for FieldIt<'a, T> {
             if self.len < 1 {
                 return None;
             }
-            self.offset = mem::size_of::<LenFields>() as isize;
+            self.offset = mem::size_of::<LenType>() as isize;
         }
 
         self.index += 1;

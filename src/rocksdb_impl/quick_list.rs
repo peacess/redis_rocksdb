@@ -78,7 +78,7 @@ impl QuickList {
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
                 node.set_len_list(1);
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as LenType);
                 node.set_values_key(&Some(&zip_key));
             }
             tr.put(node_key.as_ref(), node.as_ref())?;
@@ -126,7 +126,7 @@ impl QuickList {
                 zip.push_left(value.as_ref());
 
                 node.set_len_list(zip.len());
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as LenType);
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
                 tr.put(node_key.as_ref(), node.as_ref())?;
 
@@ -150,7 +150,7 @@ impl QuickList {
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
 
                 node.set_len_list(1);
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as LenType);
                 node.set_values_key(&Some(&zip_key));
             }
             tr.put(node_key.as_ref(), node.as_ref())?;
@@ -198,7 +198,7 @@ impl QuickList {
                 zip.push_right(value.as_ref());
 
                 node.set_len_list(zip.len());
-                node.set_len_bytes(zip.as_ref().len() as u32);
+                node.set_len_bytes(zip.as_ref().len() as LenType);
                 tr.put(zip_key.as_ref(), zip.as_ref())?;
                 tr.put(node_key.as_ref(), node.as_ref())?;
 

@@ -404,7 +404,7 @@ impl ZipList {
             for it in merge_removes.iter().rev() {
                 self.remove_start_end(it.0 as usize, it.1 as usize - 1);
             }
-            self.set_len(self.len() - will_remove as u32);
+            self.set_len(self.len() - will_remove as u64);
         }
 
         will_remove as LenType

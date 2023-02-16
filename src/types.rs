@@ -15,9 +15,9 @@ pub enum Direction {
 }
 
 /// 类型：表示成员或字段的总个数
-pub type LenType = u32;
+pub type LenType = u64;
 /// 类型：表示成员或字段名字的长度bytes
-pub type BytesType = i32;
+pub type BytesType = i64;
 
 pub const BYTES_LEN_TYPE: usize = mem::size_of::<LenType>();
 
@@ -229,11 +229,11 @@ impl Display for MetaKey {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use crate::{read_int_ptr, write_int_ptr};
 
     #[test]
-    fn test_write_int_ptr(){
+    fn test_write_int_ptr() {
         let mut data = Vec::with_capacity(16);
         data.resize(data.capacity(), 0 as u8);
 
