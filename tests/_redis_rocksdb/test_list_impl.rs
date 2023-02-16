@@ -1,7 +1,5 @@
-use std::{fs, path};
 
 use function_name::named;
-use rocksdb::TransactionDB;
 
 use redis_rocksdb::{RedisList, RedisRocksdb, Stack};
 

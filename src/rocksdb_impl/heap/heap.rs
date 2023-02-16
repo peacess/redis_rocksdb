@@ -91,7 +91,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
 
     fn drop_heap(&mut self, heap: binary_heap_plus::BinaryHeap<FieldMeta, T>) {
-        let mut data = heap.into_vec();
+        let data = heap.into_vec();
         let _ = ManuallyDrop::new(data);
     }
 
@@ -100,7 +100,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         Self::BST_OFFSET + self.bst_capt
     }
     pub fn peek(&mut self) -> Option<Vec<u8>> {
-        let mut heap = self.make_heap();
+        let heap = self.make_heap();
         let v = heap.peek();
         let pop_v = if let Some(v) = v {
             let start = v.offset;
@@ -177,25 +177,24 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
 
     fn expand(&mut self) {
-        let expand_size = Self::BST_EXPAND as usize;
-        self.data.reserve(expand_size);
+        let expand_size = Self::BST_EXPAND as isize;
+        self.data.reserve(expand_size as usize);
         unsafe {
-            self.data.set_len(self.len() + expand_size);
+            self.data.set_len(self.len() + expand_size as usize);
         }
         let old = self.bst_capt;
-        let len_data = self.data.len();
-        let mut head_array= unsafe {
+        let mut head_array = unsafe {
             let p = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old);
-            ptr::copy(p, p.offset(expand_size as isize), expand_size);
-            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old + expand_size);
+            ptr::copy(p, p.offset(expand_size as isize), expand_size as usize);
+            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old as LenType + expand_size as LenType);
             Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize / mem::size_of::<FieldMeta>())
         };
 
         for f in &mut head_array {
-            f.offset += expand_size;
+            f.offset += expand_size as isize;
         }
         let _ = ManuallyDrop::new(head_array);
-        self.bst_capt = old + expand_size;
+        self.bst_capt = old + expand_size as isize;
     }
 }
 

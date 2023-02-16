@@ -8,7 +8,7 @@ use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 #[test]
 fn test_object() {
     {
-        let mut redis_db = RedisRocksdb::new(open_transaction_db(file!(), function_name!()));
+        let redis_db = RedisRocksdb::new(open_transaction_db(file!(), function_name!()));
         let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
         tt_object(&wrap_db, RedisRocksdb::object());
         tt_object(&wrap_db, RedisRocksdb::bit_object());

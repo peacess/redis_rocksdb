@@ -1,7 +1,6 @@
 use function_name::named;
-use rocksdb::DBAccess;
 
-use redis_rocksdb::{Heap, MaxHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB};
+use redis_rocksdb::{Heap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB};
 
 use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 
@@ -9,7 +8,7 @@ use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 #[test]
 fn test_heap() {
     {
-        let mut redis_db = RedisRocksdb::new(open_transaction_db(file!(), function_name!()));
+        let redis_db = RedisRocksdb::new(open_transaction_db(file!(), function_name!()));
 
         let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
         tt_heap(&wrap_db, RedisRocksdb::max_heap());
