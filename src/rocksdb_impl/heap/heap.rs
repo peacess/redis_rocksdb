@@ -106,9 +106,9 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let v = heap.peek();
         if let Some(v) = v {
             let start = v.offset;
-            let field_size = unsafe { read_int_ptr::<LenFields>(self.data.as_ptr().offset(start)) };
+            let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
-            let re = self.data[start as usize + field_size as usize..end as usize].to_vec();
+            let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
             Some(re)
         } else {
             None
@@ -154,15 +154,15 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             write_int_ptr(p, field.len() as SizeField);
             //写入字段
             ptr::copy_nonoverlapping(field.as_ptr(), p.offset(Self::SIZE as isize), field.len());
-            let len = self.len() + 1;
-            //写入总的字段个数
-            write_int_ptr(self.data.as_mut_ptr(), len as LenFields);
             self.data.set_len(self.data.len() + add)
         }
 
         let mut heap = FieldHeap::make_heap(self);
         heap.push(FieldMeta{offset: len_data as isize });
         self.drop_heap(heap);
+        let len = self.len() + 1;
+        //写入总的字段个数
+        write_int_ptr(self.data.as_mut_ptr(), len as LenFields);
     }
 
     pub fn len(&self) -> usize {

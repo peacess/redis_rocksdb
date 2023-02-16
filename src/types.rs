@@ -228,4 +228,20 @@ impl Display for MetaKey {
     }
 }
 
+#[cfg(test)]
+mod test{
+    use crate::{read_int_ptr, write_int_ptr};
+
+    #[test]
+    fn test_write_int_ptr(){
+        let mut data = Vec::with_capacity(16);
+        data.resize(data.capacity(), 0 as u8);
+
+        let b = 256 as i64;
+        write_int_ptr(data.as_mut_ptr(), b);
+        let b2: i64 = read_int_ptr(data.as_ptr());
+        assert_eq!(b, b2)
+    }
+}
+
 
