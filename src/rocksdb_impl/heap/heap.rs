@@ -142,7 +142,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         //检查是否有heap的空间是否够大
         let len = self.len();
         if len * mem::size_of::<FieldMeta>() >= self.bst_capt as usize {
-            //todo 分配空间，并更新heap中的offset位置
+            self.expand();
         }
 
         let add = Self::SIZE + field.len();
@@ -184,11 +184,17 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         }
         let old = self.bst_capt;
         let len_data = self.data.len();
-        unsafe {
+        let mut head_array= unsafe {
             let p = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old);
             ptr::copy(p, p.offset(expand_size as isize), expand_size);
             write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old + expand_size);
+            Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize / mem::size_of::<FieldMeta>())
+        };
+
+        for f in &mut head_array {
+            f.offset += expand_size;
         }
+        let _ = ManuallyDrop::new(head_array);
         self.bst_capt = old + expand_size;
     }
 }
