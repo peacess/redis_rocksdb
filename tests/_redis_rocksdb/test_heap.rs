@@ -1,6 +1,9 @@
+use std::{mem, num};
+use std::any::{Any, TypeId};
+
 use function_name::named;
 
-use redis_rocksdb::{Heap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB};
+use redis_rocksdb::{Heap, MaxHeap, MinHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB, write_int};
 
 use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 
@@ -29,7 +32,7 @@ fn test_heap() {
     }
 }
 
-fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T>) {
+fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
     let key = vec![0 as u8, 1, 2];
     let field = vec![6 as u8, 7, 8];
     let value = "data".to_owned();
@@ -72,5 +75,29 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T>) {
         assert_eq!(Some(1), re.expect(""));
         let re = heap.pop(db, &key);
         assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
+    }
+    {
+        const max_rang: i32 = 3;
+        let _ = heap.remove_key(db, &key);
+        for i in 1..max_rang {
+            let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+            write_int(field.as_mut(), i);
+            let _ = heap.push(db, &key, field.as_slice(), field.as_slice());
+        }
+
+
+        let range: Vec<i32> = if heap.type_id() == TypeId::of::<MaxHeap>() {
+            (1..max_rang).rev().collect()
+        } else {
+            (1..max_rang).collect()
+        };
+
+        for i in range {
+            let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+            write_int(field.as_mut(), i);
+            let (k, v) = heap.pop(db, &key).expect("").expect("");
+            assert_eq!(field.to_vec(), k);
+            assert_eq!(field.to_vec(), v);
+        }
     }
 }

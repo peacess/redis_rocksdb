@@ -15,9 +15,9 @@ impl Compare<FieldMeta> for MaxHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
             let p = (*self.heap).data.as_ptr();
-            let l_len = read_int_ptr::<LenType>(p.offset(l.offset)) as usize;
+            let l_len = read_int_ptr::<SizeField>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
-            let r_len = read_int_ptr::<LenType>(p.offset(r.offset)) as usize;
+            let r_len = read_int_ptr::<SizeField>(p.offset(r.offset)) as usize;
             let r_v = slice::from_raw_parts(p.offset(r_len as isize + r.offset), r_len);
             l_v.cmp(r_v)
         }
@@ -33,9 +33,9 @@ impl Compare<FieldMeta> for MinHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
             let p = (*self.heap).data.as_ptr();
-            let l_len = read_int_ptr::<LenType>(p.offset(l.offset)) as usize;
+            let l_len = read_int_ptr::<SizeField>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
-            let r_len = read_int_ptr::<LenType>(p.offset(r.offset)) as usize;
+            let r_len = read_int_ptr::<SizeField>(p.offset(r.offset)) as usize;
             let r_v = slice::from_raw_parts(p.offset(r_len as isize + r.offset), r_len);
             //由于是最小堆，所以反过比较
             r_v.cmp(l_v)
@@ -180,7 +180,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let expand_size = Self::BST_EXPAND as isize;
         self.data.reserve(expand_size as usize);
         unsafe {
-            self.data.set_len(self.len() + expand_size as usize);
+            self.data.set_len(self.data.len() + expand_size as usize);
         }
         let old = self.bst_capt;
         let mut head_array = unsafe {

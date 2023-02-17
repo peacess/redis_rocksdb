@@ -648,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "redis_rocksdb"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "binary-heap-plus",
