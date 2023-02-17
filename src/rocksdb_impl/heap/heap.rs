@@ -103,7 +103,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let heap = self.make_heap();
         let v = heap.peek();
         let pop_v = if let Some(v) = v {
-            let start = v.offset;
+            let start = v.offset + Self::BST_OFFSET + self.bst_capt;
             let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
             let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
@@ -120,16 +120,15 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let v = heap.pop();
         self.drop_heap(heap);
         if let Some(v) = v {
-            let l = self.len();
-            self.set_len(l - 1);
-            let start = v.offset;
+            let len_field = self.len() - 1;
+            self.set_len(len_field);
+            let start = v.offset + Self::BST_OFFSET + self.bst_capt;
             let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
-            let p = self.data.as_ptr();
             let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
-            unsafe {
-                ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.data.len() - field_size as usize - Self::SIZE);
+            //如果删除的数据，等于或超过一次扩展的数据，那么进行清理，把没有使用的空间删除（压缩数据）
+            if self.bst_capt as usize - len_field * mem::size_of::<FieldMeta>() >= Self::BST_EXPAND as usize {
+                self.reduce();
             }
             Some(re)
         } else {
@@ -158,7 +157,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         }
 
         let mut heap = self.make_heap();
-        heap.push(FieldMeta { offset: len_data as isize });
+        heap.push(FieldMeta { offset: len_data as isize - Self::BST_OFFSET - self.bst_capt });
         self.drop_heap(heap);
         let len = self.len() + 1;
         //写入总的字段个数
@@ -183,18 +182,42 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             self.data.set_len(self.data.len() + expand_size as usize);
         }
         let old = self.bst_capt;
-        let mut head_array = unsafe {
+        unsafe {
             let p = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old);
             ptr::copy(p, p.offset(expand_size as isize), expand_size as usize);
             write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old as LenType + expand_size as LenType);
+        };
+        self.bst_capt = old + expand_size as isize;
+    }
+
+    fn reduce(&mut self) {
+        let reduce_size = Self::BST_EXPAND as isize;
+        let mut temp_fields = Vec::<u8>::with_capacity(self.data.len() - self.bst_capt as usize);
+        self.data.reserve(reduce_size as usize);
+        unsafe {
+            self.data.set_len(self.data.len() + reduce_size as usize);
+        }
+        let mut head_array = unsafe {
             Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize / mem::size_of::<FieldMeta>())
         };
-
-        for f in &mut head_array {
-            f.offset += expand_size as isize;
+        let mut offset = 0;
+        let p_data = unsafe { self.data.as_ptr().offset(Self::BST_OFFSET + self.bst_capt) };
+        for v in &mut head_array {
+            let start = v.offset;
+            let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
+            unsafe {
+                ptr::copy_nonoverlapping(p_data.offset(start), temp_fields.as_mut_ptr().offset(offset), field_size as usize + Self::SIZE);
+            }
+            v.offset = offset;
+            offset += field_size as isize + Self::SIZE as isize;
         }
-        let _ = ManuallyDrop::new(head_array);
-        self.bst_capt = old + expand_size as isize;
+        unsafe {
+            temp_fields.set_len(offset as usize);
+            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), (self.bst_capt - reduce_size) as LenType);
+            ptr::copy_nonoverlapping(temp_fields.as_ptr(), self.data.as_mut_ptr().offset(Self::BST_OFFSET + self.bst_capt), temp_fields.len());
+            self.data.set_len((Self::BST_OFFSET as usize + self.bst_capt as usize + temp_fields.len()) as usize);
+        }
+        self.bst_capt -= reduce_size as isize;
     }
 }
 

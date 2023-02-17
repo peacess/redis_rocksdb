@@ -1,4 +1,3 @@
-
 use crate::{LenType, Object, RrError, WrapDb};
 use crate::rocksdb_impl::shared::{get_field_from_key, make_field_key};
 

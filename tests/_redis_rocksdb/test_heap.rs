@@ -1,9 +1,9 @@
-use std::{mem, num};
+use std::{mem};
 use std::any::{Any, TypeId};
 
 use function_name::named;
 
-use redis_rocksdb::{Heap, MaxHeap, MinHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB, write_int};
+use redis_rocksdb::{Heap, MaxHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB, write_int};
 
 use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 
@@ -77,9 +77,9 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
         assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
     }
     {
-        const max_rang: i32 = 3;
+        const MAX_RANG: i32 = 3;
         let _ = heap.remove_key(db, &key);
-        for i in 1..max_rang {
+        for i in 1..MAX_RANG {
             let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
             write_int(field.as_mut(), i);
             let _ = heap.push(db, &key, field.as_slice(), field.as_slice());
@@ -87,9 +87,9 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
 
 
         let range: Vec<i32> = if heap.type_id() == TypeId::of::<MaxHeap>() {
-            (1..max_rang).rev().collect()
+            (1..MAX_RANG).rev().collect()
         } else {
-            (1..max_rang).collect()
+            (1..MAX_RANG).collect()
         };
 
         for i in range {
