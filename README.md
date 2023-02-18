@@ -7,9 +7,52 @@ Feature list
 4. Max/Min binary heap(zero copy)
 5. B + Tree (Binary plus Tree) ...
 # Sample
-see the [test](./tests/_redis_rocksdb/test_list_impl.rs)
+more details see the [test](./tests/_redis_rocksdb/test_list_impl.rs)  
+Max Heap  
 ```rust
+#[cfg(test)]
+mod sample{
+    use rocksdb::TransactionDB;
+    use redis_rocksdb::{Heap, RedisRocksdb, WrapTransactionDB};
 
+    #[test]
+    fn sample(){
+        let trans_db= TransactionDB::open_default("db_name.db").expect("");
+        let redis_db = RedisRocksdb::new(trans_db);
+        let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
+
+        let max_heap = RedisRocksdb::max_heap();
+        let key = vec![0 as u8, 1, 2];
+        let field = vec![6 as u8, 7, 8];
+        let value = "data".to_owned();
+
+        let _ = max_heap.push(&wrap_db, &field, value.as_bytes());
+        let _ = max_heap.pop(&wrap_db, &key);
+    }
+}
+```
+Object 
+```rust
+#[cfg(test)]
+mod sample{
+    use rocksdb::TransactionDB;
+    use redis_rocksdb::{Heap, Object, RedisRocksdb, WrapTransactionDB};
+
+    #[test]
+    fn sample(){
+        let trans_db= TransactionDB::open_default("db_name.db").expect("");
+        let redis_db = RedisRocksdb::new(trans_db);
+        let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
+
+        let object = RedisRocksdb::object();
+        let key = vec![0 as u8, 1, 2];
+        let field = vec![6 as u8, 7, 8];
+        let value = "data".to_owned();
+
+        let _ = object.set(&wrap_db, &field, value.as_bytes());
+        let _ = object.get(&wrap_db, &key, &field);
+    }
+}
 ```
 # Install
 ## Window

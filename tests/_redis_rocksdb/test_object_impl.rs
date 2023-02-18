@@ -123,3 +123,4 @@ fn tt_object<T: WrapDb>(wrap_db: &T, object: impl Object<T>) {
         assert_eq!(Some(value.as_bytes().to_vec()), re.expect(""));
     }
 }
+

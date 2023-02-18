@@ -101,3 +101,24 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
         }
     }
 }
+
+#[cfg(test)]
+mod sample{
+    use rocksdb::TransactionDB;
+    use redis_rocksdb::{Heap, RedisRocksdb, WrapTransactionDB};
+
+    #[test]
+    fn sample(){
+        let trans_db= TransactionDB::open_default("db_name.db").expect("");
+        let redis_db = RedisRocksdb::new(trans_db);
+        let wrap_db = WrapTransactionDB { db: redis_db.get_db() };
+
+        let max_heap = RedisRocksdb::max_heap();
+        let key = vec![0 as u8, 1, 2];
+        let field = vec![6 as u8, 7, 8];
+        let value = "data".to_owned();
+
+        let _ = max_heap.push(&wrap_db, &field, value.as_bytes());
+        let _ = max_heap.pop(&wrap_db, &key);
+    }
+}
