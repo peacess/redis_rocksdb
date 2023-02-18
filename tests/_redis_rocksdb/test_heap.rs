@@ -77,9 +77,9 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
         assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
     }
     {
-        const MAX_RANG: i32 = 4;
+        const MAX_RANG: i32 = 129;
         let _ = heap.remove_key(db, &key);
-        for i in 1..MAX_RANG {
+        for i in 1..=MAX_RANG {
             let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
             write_int(field.as_mut(), i);
             let _ = heap.push(db, &key, field.as_slice(), field.as_slice());
@@ -87,9 +87,9 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
 
 
         let range: Vec<i32> = if heap.type_id() == TypeId::of::<MaxHeap>() {
-            (1..MAX_RANG).rev().collect()
+            (1..=MAX_RANG).rev().collect()
         } else {
-            (1..MAX_RANG).collect()
+            (1..=MAX_RANG).collect()
         };
 
         for i in range {

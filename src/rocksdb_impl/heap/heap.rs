@@ -14,7 +14,8 @@ pub(crate) struct MaxHeapCompare {
 impl Compare<FieldMeta> for MaxHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
-            let p = (*self.heap).data.as_ptr();
+            let field_heap = &(*self.heap);
+            let p = field_heap.data.as_ptr().offset(field_heap.bst_capt + FieldHeap::<MaxHeapCompare>::BST_OFFSET);
             let l_len = read_int_ptr::<SizeField>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
             let r_len = read_int_ptr::<SizeField>(p.offset(r.offset)) as usize;
@@ -32,7 +33,8 @@ pub(crate) struct MinHeapCompare {
 impl Compare<FieldMeta> for MinHeapCompare {
     fn compare(&self, l: &FieldMeta, r: &FieldMeta) -> Ordering {
         unsafe {
-            let p = (*self.heap).data.as_ptr();
+            let field_heap = &(*self.heap);
+            let p = field_heap.data.as_ptr().offset(field_heap.bst_capt + FieldHeap::<MaxHeapCompare>::BST_OFFSET);
             let l_len = read_int_ptr::<SizeField>(p.offset(l.offset)) as usize;
             let l_v = slice::from_raw_parts(p.offset(l_len as isize + l.offset), l_len);
             let r_len = read_int_ptr::<SizeField>(p.offset(r.offset)) as usize;
@@ -66,7 +68,7 @@ pub(crate) struct FieldMeta {
 impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     pub const SIZE: usize = mem::size_of::<SizeField>();
     pub const BST_OFFSET: isize = 2 * (mem::size_of::<LenType>() as isize);
-    pub const BST_EXPAND: isize = 4 * (mem::size_of::<FieldMeta>() as isize);
+    pub const BST_EXPAND: isize = 64 * (mem::size_of::<FieldMeta>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
@@ -127,7 +129,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             let end = start + Self::SIZE as isize + field_size as isize;
             let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
             //如果删除的数据，等于或超过一次扩展的数据，那么进行清理，把没有使用的空间删除（压缩数据）
-            if self.bst_capt as usize - len_field * mem::size_of::<FieldMeta>() >= Self::BST_EXPAND as usize {
+            if self.bst_capt as usize - len_field * mem::size_of::<FieldMeta>() > Self::BST_EXPAND as usize {
                 self.reduce();
             }
             Some(re)
@@ -181,44 +183,42 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         unsafe {
             self.data.set_len(self.data.len() + expand_size as usize);
         }
-        let old = self.bst_capt;
+        let old_capt = self.bst_capt;
         unsafe {
-            let p = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old);
-            ptr::copy(p, p.offset(expand_size as isize), expand_size as usize);
-            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old as LenType + expand_size as LenType);
+            let p_data = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old_capt);
+            ptr::copy(p_data, p_data.offset(expand_size as isize), self.data.len() - expand_size as usize - Self::BST_OFFSET as usize - old_capt as usize);
+            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), old_capt as LenType + expand_size as LenType);
         };
-        self.bst_capt = old + expand_size as isize;
+        self.bst_capt = old_capt + expand_size as isize;
     }
 
     fn reduce(&mut self) {
         let reduce_size = Self::BST_EXPAND as isize;
-        let mut temp_fields = Vec::<u8>::with_capacity(self.data.len() - self.bst_capt as usize);
-        self.data.reserve(reduce_size as usize);
-        unsafe {
-            self.data.set_len(self.data.len() + reduce_size as usize);
-        }
+        let mut temp_fields = Vec::<u8>::with_capacity(self.data.len() - self.bst_capt as usize - Self::BST_OFFSET as usize);
+
         let mut head_array = unsafe {
             Vec::from_raw_parts(self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta, self.len(), self.bst_capt as usize / mem::size_of::<FieldMeta>())
         };
         let mut offset = 0;
         let p_data = unsafe { self.data.as_ptr().offset(Self::BST_OFFSET + self.bst_capt) };
-        for v in &mut head_array {
-            let start = v.offset;
-            let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
+        for field_meta in &mut head_array {
+            let start = field_meta.offset;
+            let field_size = unsafe { read_int_ptr::<SizeField>(p_data.offset(start)) };
             unsafe {
                 ptr::copy_nonoverlapping(p_data.offset(start), temp_fields.as_mut_ptr().offset(offset), field_size as usize + Self::SIZE);
             }
-            v.offset = offset;
+            field_meta.offset = offset;
             offset += field_size as isize + Self::SIZE as isize;
+            unsafe { temp_fields.set_len(offset as usize); }
         }
         let _ = ManuallyDrop::new(head_array);
+        self.bst_capt -= reduce_size as isize;
         unsafe {
             temp_fields.set_len(offset as usize);
-            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), (self.bst_capt - reduce_size) as LenType);
+            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), self.bst_capt as LenType);
             ptr::copy_nonoverlapping(temp_fields.as_ptr(), self.data.as_mut_ptr().offset(Self::BST_OFFSET + self.bst_capt), temp_fields.len());
             self.data.set_len((Self::BST_OFFSET as usize + self.bst_capt as usize + temp_fields.len()) as usize);
         }
-        self.bst_capt -= reduce_size as isize;
     }
 }
 
@@ -270,15 +270,79 @@ impl<'a, T: Compare<FieldMeta> + Clone> Iterator for FieldIt<'a, T> {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
+    use std::mem;
+
+    use crate::write_int;
+
     #[test]
-    fn test_binary_heap(){
-        let mut t = binary_heap_plus::BinaryHeap::new();
-        t.push(1);
-        t.push(2);
-        t.push(3);
-        assert_eq!(3, t.pop().expect(""));
-        assert_eq!(2, t.pop().expect(""));
-        assert_eq!(1, t.pop().expect(""));
+    fn test_binary_heap() {
+        {
+            {
+                let mut t = binary_heap_plus::BinaryHeap::new();
+                t.push(1);
+                t.push(2);
+                t.push(3);
+                assert_eq!(3, t.pop().expect(""));
+                assert_eq!(2, t.pop().expect(""));
+                assert_eq!(1, t.pop().expect(""));
+            }
+            {
+                const MAX: i32 = 6;
+                let mut t = binary_heap_plus::BinaryHeap::<[u8; mem::size_of::<i32>()]>::new();
+                for i in 1..MAX {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    t.push(field);
+                }
+                for i in (1..MAX).rev() {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    let data = t.pop().expect("");
+                    assert_eq!(field, data);
+                }
+            }
+            {
+                const MAX: i32 = 6;
+                let mut t = binary_heap_plus::BinaryHeap::new();
+                for i in 1..MAX {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    t.push(field.to_vec());
+                }
+                for i in (1..MAX).rev() {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    let data = t.pop().expect("");
+                    assert_eq!(field.to_vec(), data);
+                }
+            }
+        }
+        {
+            {
+                let mut t = binary_heap_plus::BinaryHeap::new_min();
+                t.push(1);
+                t.push(2);
+                t.push(3);
+                assert_eq!(1, t.pop().expect(""));
+                assert_eq!(2, t.pop().expect(""));
+                assert_eq!(3, t.pop().expect(""));
+            }
+            {
+                const MAX: i32 = 6;
+                let mut t = binary_heap_plus::BinaryHeap::new_min();
+                for i in 1..MAX {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    t.push(field.to_vec());
+                }
+                for i in 1..MAX {
+                    let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];
+                    write_int(field.as_mut(), i);
+                    let data = t.pop().expect("");
+                    assert_eq!(field.to_vec(), data);
+                }
+            }
+        }
     }
 }
