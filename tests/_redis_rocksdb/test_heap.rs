@@ -77,7 +77,7 @@ fn tt_heap<T: WrapDb>(db: &T, heap: impl Heap<T> + 'static) {
         assert_eq!((field.to_vec(), value.as_bytes().to_vec()), re.expect("").expect(""));
     }
     {
-        const MAX_RANG: i32 = 3;
+        const MAX_RANG: i32 = 4;
         let _ = heap.remove_key(db, &key);
         for i in 1..MAX_RANG {
             let mut field: [u8; mem::size_of::<i32>()] = [0; mem::size_of::<i32>()];

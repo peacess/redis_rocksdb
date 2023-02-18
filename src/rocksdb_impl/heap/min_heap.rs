@@ -107,6 +107,18 @@ impl<T: WrapDb> Heap<T> for MinHeap {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use crate::Heap;
+    use crate::MinHeap;
+
+    #[test]
+    fn test_min_heap_transactiondb() {
+        // let heap = MinHeap {};
+        // let key = vec![0 as u8, 1, 2];
+        // let f = heap.pop(&key);
+    }
+}
 
 
 

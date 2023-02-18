@@ -66,7 +66,7 @@ pub(crate) struct FieldMeta {
 impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     pub const SIZE: usize = mem::size_of::<SizeField>();
     pub const BST_OFFSET: isize = 2 * (mem::size_of::<LenType>() as isize);
-    pub const BST_EXPAND: isize = 128 * (mem::size_of::<FieldMeta>() as isize);
+    pub const BST_EXPAND: isize = 4 * (mem::size_of::<FieldMeta>() as isize);
 
     pub fn new(data: Vec<u8>) -> Self {
         let mut data = data;
@@ -211,6 +211,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             v.offset = offset;
             offset += field_size as isize + Self::SIZE as isize;
         }
+        let _ = ManuallyDrop::new(head_array);
         unsafe {
             temp_fields.set_len(offset as usize);
             write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), (self.bst_capt - reduce_size) as LenType);
@@ -265,5 +266,19 @@ impl<'a, T: Compare<FieldMeta> + Clone> Iterator for FieldIt<'a, T> {
             field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + FieldHeap::<T>::SIZE as isize), field_size as usize) },
         };
         return Some(it);
+    }
+}
+
+#[cfg(test)]
+mod test{
+    #[test]
+    fn test_binary_heap(){
+        let mut t = binary_heap_plus::BinaryHeap::new();
+        t.push(1);
+        t.push(2);
+        t.push(3);
+        assert_eq!(3, t.pop().expect(""));
+        assert_eq!(2, t.pop().expect(""));
+        assert_eq!(1, t.pop().expect(""));
     }
 }
