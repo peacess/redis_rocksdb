@@ -59,7 +59,6 @@ pub fn copy_vec_benchmark(c :&mut Criterion){
     c.bench_function("copy", |b|b.iter(||CopyVec::copy()));
     c.bench_function("vec", |b|b.iter(||CopyVec::vec()));
     c.bench_function("copy_over", |b|b.iter(||CopyVec::copy_over()));
-
 }
 
 criterion_group!(benches, copy_vec_benchmark);

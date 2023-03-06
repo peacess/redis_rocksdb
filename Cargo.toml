@@ -1,6 +1,6 @@
 [package]
 name = "redis_rocksdb"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2021"
 authors = ["Peace <peacess@163.com>"]
 exclude = [".gitignore"]
@@ -17,20 +17,21 @@ path = "src/lib.rs"
 
 [dependencies]
 log = "0.4.17"
-anyhow = "1.0.57"
+anyhow = "1.0.69"
 #ckb-rocksdb = "0.18.0"
-rocksdb = "0.19.0"
+rocksdb = "0.20.1"
 #rocksdb = { version = "0.18.0", features = ["multi-threaded-cf"] }
 binary-heap-plus = "0.5.0"
 compare = "0.1.0"
 
 [dev-dependencies]
-function_name = "0.2.0"
+function_name = "0.3.0"
 criterion = "0.4"
 cargo-valgrind = "2.1.0"
 
 [[bench]]
 name = "copy_vec_benchmark"
+path = "benches/copy_vec_benchmark.rs"
 harness = false
 
 
