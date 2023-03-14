@@ -1,3 +1,5 @@
+extern crate core;
+
 pub use bptree::*;
 pub use error::RrError;
 pub use heap::*;
