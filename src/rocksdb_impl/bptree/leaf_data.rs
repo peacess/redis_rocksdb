@@ -1,4 +1,5 @@
 use std::mem::size_of;
+use anyhow::Error;
 
 use crate::{BytesType, LenType, read_int_ptr};
 use crate::rocksdb_impl::bptree::node::Node;
@@ -9,6 +10,7 @@ pub struct LeafData {
     pub number_keys: LenType,
     //单位是 byte, 不是key的个数
     pub bytes_number: BytesType,
+
     pub offset: isize,
 
 }
@@ -28,5 +30,9 @@ impl LeafData {
             self.number_keys = read_int_ptr(data.as_ptr().offset(self.offset));
             self.bytes_number = read_int_ptr(data.as_ptr().offset(self.offset + size_of::<LenType>() as isize));
         }
+    }
+
+    pub fn binary_search(&self, data:&[u8], key: &[u8]) -> Result<(), Error> {
+        Ok(())
     }
 }

@@ -2,9 +2,9 @@ use std::convert::TryFrom;
 use std::mem::size_of;
 
 use crate::{BytesType, LenType, read_int_ptr};
+use crate::datas::VecBytes;
 use crate::rocksdb_impl::bptree::children::Children;
 use crate::rocksdb_impl::bptree::db_key::DbKey;
-use crate::rocksdb_impl::bptree::keys::Keys;
 use crate::rocksdb_impl::bptree::kits::new_db_key;
 use crate::rocksdb_impl::bptree::leaf_data::LeafData;
 
@@ -26,7 +26,7 @@ impl Node {
     pub const offset_parent_db_key: isize = Node::offset_db_key + DbKey::LenDbKey as isize;
     pub const offset_node_data: isize = Node::offset_parent_db_key + DbKey::LenDbKey as isize;
 
-    pub fn new(node_type: NodeType, is_root: bool) -> Node {
+    pub fn new(node_type: NodeType) -> Node {
         let mut data = Vec::with_capacity(Node::offset_node_data as usize);
         data.resize(data.capacity(), 0);
         data[0] = u8::from(&node_type);
@@ -95,19 +95,25 @@ impl Node {
         DbKey::from(&self.data[Node::offset_parent_db_key as usize..Node::offset_parent_db_key as usize + DbKey::LenDbKey])
     }
     pub fn set_parent_db_key(&mut self, key: &[u8]) {
+        Node::set_parent_db_key_data(&mut self.data, key);
+    }
+
+    pub fn set_parent_db_key_data(data: &mut [u8], key: &[u8]) {
         unsafe {
-            std::ptr::copy(key.as_ptr(), self.data.as_mut_ptr().offset(Node::offset_parent_db_key), key.len());
+            std::ptr::copy(key.as_ptr(), data.as_mut_ptr().offset(Node::offset_parent_db_key), key.len());
         }
     }
 
     /// split creates a sibling node from a given node by splitting the node in two around a median.
     /// split will split the child at b leaving the [0, b-1] keys
     /// while moving the set of [b, 2b-1] keys to the sibling.
-    pub fn split(node: &mut Node, at: usize) -> Result<(Vec<u8>, Node), Error> {
+    pub fn split(&mut self, at: u64) -> Result<(Vec<u8>, Node), Error> {
+        let node = self;
+        let at = at as usize;
         match &mut node.node_type {
             NodeType::Internal(children, keys) => {
                 let mut new_children = Children::new();
-                let mut new_keys = Keys::new();
+                let mut new_keys = VecBytes::new();
                 let mut mid_key = vec![];
 
                 let mut new_data = Vec::with_capacity(Node::offset_node_data as usize + node.data.len() / 2);
@@ -127,7 +133,7 @@ impl Node {
                 new_keys.offset = new_children.offset_keys();
                 new_keys.set_number_keys(at as LenType - 1, &mut new_data);
 
-                let mut offset_original = keys.offset + Keys::offset_data;
+                let mut offset_original = keys.offset + VecBytes::offset_data;
                 unsafe {
                     for i in 0..keys.number_keys {
                         if i as usize == at {
@@ -137,16 +143,16 @@ impl Node {
                             std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset_original + size_of::<BytesType>() as isize), new_data.as_mut_ptr(), mid_key.len());
                             let temp_offset = offset_original + b as isize + size_of::<BytesType>() as isize;
 
-                            let new_offset = new_keys.offset + Keys::offset_data;
-                            new_keys.set_bytes_number(node.data.len() as BytesType - temp_offset as BytesType, &mut new_data);
-                            std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(temp_offset), new_data.as_mut_ptr().offset(new_offset), new_keys.bytes_number as usize);
+                            let new_offset = new_keys.offset + VecBytes::offset_data;
+                            new_keys.set_bytes_data(node.data.len() as BytesType - temp_offset as BytesType, &mut new_data);
+                            std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(temp_offset), new_data.as_mut_ptr().offset(new_offset), new_keys.bytes_data as usize);
                             break;
                         }
                         let b = read_int_ptr::<BytesType>(node.data.as_ptr().offset(offset_original));
                         offset_original += b as isize + size_of::<BytesType>() as isize;
                     }
                     keys.set_number_keys(at as LenType - 1, &mut node.data);
-                    keys.set_bytes_number((offset_original - keys.offset - Keys::offset_data) as BytesType, &mut node.data);
+                    keys.set_bytes_data((offset_original - keys.offset - VecBytes::offset_data) as BytesType, &mut node.data);
                     node.data.set_len(offset_original as usize);
                 }
                 Ok((mid_key, Node {

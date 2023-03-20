@@ -2,8 +2,10 @@ use std::cmp;
 use std::convert::TryFrom;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
+use crate::datas::VecBytes;
 
-use crate::rocksdb_impl::bptree::node_type::{Children, DbKey, Keys};
+use crate::rocksdb_impl::bptree::db_key::DbKey;
+use crate::rocksdb_impl::bptree::node_type::{Children};
 use crate::rocksdb_impl::shared::make_head_key;
 use crate::WrapDb;
 
@@ -24,7 +26,7 @@ pub struct BTree<'a, T: WrapDb> {
     key: &'a [u8],
 }
 
-impl<'a, T: WrapDb> BTree<T> {
+impl<'a, T: WrapDb> BTree<'a, T> {
     pub fn new(key: &[u8], t: &'a T) -> Self {
         BTree {
             b: 3,
@@ -49,33 +51,76 @@ impl<'a, T: WrapDb> BTree<T> {
         }
     }
 
+    fn set_parent_of_children(&self, node: &mut Node) -> Result<(), Error> {
+        match &node.node_type {
+            NodeType::Internal(children, _) => {
+                let mut offset = children.offset + Children::offset_data;
+                let mut child_db_key = DbKey::ZeroKey.clone();
+                let parent_db_key = node.parent_db_key().key();
+
+                for _ in 0..children.number_children as isize {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(self.data.as_ptr().offset(offset), child_db_key.as_mut_ptr(), DbKey::LenDbKey);
+                    }
+
+                    let mut data = self.t.get(&child_db_key)?;
+                    if let Some(data) = &mut data {
+                        Node::set_parent_db_key_data(data.as_mut_slice(), parent_db_key);
+                        self.t.put(&child_db_key, data.as_slice())?;
+                    } else {
+                        return Err(Error::KeyNotFound);
+                    }
+                    offset += DbKey::LenDbKey;
+                }
+            }
+            NodeType::Leaf(leaf) => {
+                //todo
+            }
+            NodeType::None => {}
+        }
+        Ok(())
+    }
+
     /// insert a key value pair possibly splitting nodes along the way.
     pub fn insert(&mut self, k: &[u8], v: &[u8]) -> Result<(), Error> {
-        let new_root_offset: Offset;
+        // let new_root_offset: Offset;
         let mut new_root: Node;
         let head_key = make_head_key(self.key);
         let mut root = {
             match self.t.get(&head_key) {
                 Some(data) => Node::try_from(data)?,
-                None => Node::new(NodeType::Internal(Children::new(), Keys::new()), true)
+                None => Node::new(NodeType::Internal(Children::new(), VecBytes::new()))
             }
         };
 
         if self.is_node_full(&root)? {
             // split the root creating a new root and child nodes along the way.
-            let (median, sibling) = Node::split(&mut root, self.b as usize)?;
+            let (median, mut sibling) = root.split( self.b)?;
             root.set_is_root(false);
+            sibling.set_is_root(false);
 
-            self.t.put(&sibling.key, &sibling.data)?;
-            self.t.put(&root.key, &root.data)?;
+            new_root = Node::new(NodeType::Internal(Children::new(), VecBytes::new()));
+            new_root.set_is_root(true);
+            Children::add(&mut new_root, &vec![root.db_key().key(), sibling.db_key().key()]);
+            VecBytes::add(&mut new_root, &vec![median.as_slice()]);
+            root.set_parent_db_key(new_root.db_key().key());
+            sibling.set_parent_db_key(new_root.db_key().key());
+            self.t.put(sibling.db_key().key(), &sibling.data)?;
+            self.t.put(root.db_key().key(), &root.data)?;
+            self.t.put(new_root.db_key().key(), &new_root.data)?;
+            //sibling的所有中的child的每一个 parent_key已变化，所以需要更新
+            self.set_parent_of_children(&mut sibling)?;
+
+            // continue recursively.
+            self.insert_non_full(&mut new_root, k, v)?;
+            self.t.put(&head_key, &new_root.data)?;
         } else {
-            new_root = root.clone();
-            new_root_offset = self.pager.write_page(Page::try_from(&new_root)?)?;
+            // continue recursively.
+            self.insert_non_full(&mut root, k, v)?;
+            // finish by setting the root to its new copy.
+            self.t.put(&head_key, &root.data)?;
         }
-        // continue recursively.
-        self.insert_non_full(&mut new_root, new_root_offset.clone(), kv)?;
-        // finish by setting the root to its new copy.
-        self.t.put(&head_key, &new_root.data)?;
+
         Ok(())
     }
 
@@ -85,7 +130,6 @@ impl<'a, T: WrapDb> BTree<T> {
     fn insert_non_full(
         &mut self,
         node: &mut Node,
-        node_offset: Offset,
         k: &[u8], v: &[u8],
     ) -> Result<(), Error> {
         match &mut node.node_type {
@@ -110,7 +154,7 @@ impl<'a, T: WrapDb> BTree<T> {
                 if self.is_node_full(&child)? {
                     // split will split the child at b leaving the [0, b-1] keys
                     // while moving the set of [b, 2b-1] keys to the sibling.
-                    let (mediao, mut) = Node::split(&mut child, self.b)?;
+                    // let (mediao, mut ) = Node::split(&mut child, self.b)?;
                     let (median, mut sibling) = child.split(self.b)?;
                     self.pager
                         .write_page_at_offset(Page::try_from(&child)?, &new_child_offset)?;

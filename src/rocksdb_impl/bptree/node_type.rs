@@ -1,14 +1,14 @@
 use std::convert::From;
 
+use crate::datas::VecBytes;
 use crate::rocksdb_impl::bptree::children::Children;
-use crate::rocksdb_impl::bptree::keys::Keys;
 use crate::rocksdb_impl::bptree::leaf_data::LeafData;
 
 // NodeType Represents different node types in the BTree.
 #[derive(Clone, Debug)]
 pub enum NodeType {
     /// Internal nodes contain a vector of pointers to their children and a vector of keys.
-    Internal(Children, Keys),
+    Internal(Children, VecBytes),
 
     /// Leaf nodes contain a vector of Keys and values.
     Leaf(LeafData),
@@ -21,7 +21,7 @@ impl From<u8> for NodeType {
     fn from(orig: u8) -> NodeType {
         match orig {
             0x00 => NodeType::None,
-            0x01 => NodeType::Internal(Children::new(), Keys::new()),
+            0x01 => NodeType::Internal(Children::new(), VecBytes::new()),
             0x02 => NodeType::Leaf(LeafData::new()),
             _ => NodeType::None,
         }
