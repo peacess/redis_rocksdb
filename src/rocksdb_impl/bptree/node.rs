@@ -7,6 +7,7 @@ use crate::rocksdb_impl::bptree::children::Children;
 use crate::rocksdb_impl::bptree::db_key::DbKey;
 use crate::rocksdb_impl::bptree::kits::new_db_key;
 use crate::rocksdb_impl::bptree::leaf_data::LeafData;
+use crate::rocksdb_impl::bptree::node_type::Keys;
 
 use super::error::Error;
 use super::node_type::NodeType;
@@ -98,6 +99,10 @@ impl Node {
         Node::set_parent_db_key_data(&mut self.data, key);
     }
 
+    pub fn set_parent_none(&mut self) {
+        Node::set_parent_db_key_data(&mut self.data, &DbKey::ZeroKey);
+    }
+
     pub fn set_parent_db_key_data(data: &mut [u8], key: &[u8]) {
         unsafe {
             std::ptr::copy(key.as_ptr(), data.as_mut_ptr().offset(Node::offset_parent_db_key), key.len());
@@ -133,7 +138,7 @@ impl Node {
                 new_keys.offset = new_children.offset_keys();
                 new_keys.set_number_keys(at as LenType - 1, &mut new_data);
 
-                let mut offset_original = keys.offset + VecBytes::offset_data;
+                let mut offset_original = keys.offset + Keys::offset_data;
                 unsafe {
                     for i in 0..keys.number_keys {
                         if i as usize == at {
@@ -143,7 +148,7 @@ impl Node {
                             std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset_original + size_of::<BytesType>() as isize), new_data.as_mut_ptr(), mid_key.len());
                             let temp_offset = offset_original + b as isize + size_of::<BytesType>() as isize;
 
-                            let new_offset = new_keys.offset + VecBytes::offset_data;
+                            let new_offset = new_keys.offset + Keys::offset_data;
                             new_keys.set_bytes_data(node.data.len() as BytesType - temp_offset as BytesType, &mut new_data);
                             std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(temp_offset), new_data.as_mut_ptr().offset(new_offset), new_keys.bytes_data as usize);
                             break;
@@ -152,7 +157,7 @@ impl Node {
                         offset_original += b as isize + size_of::<BytesType>() as isize;
                     }
                     keys.set_number_keys(at as LenType - 1, &mut node.data);
-                    keys.set_bytes_data((offset_original - keys.offset - VecBytes::offset_data) as BytesType, &mut node.data);
+                    keys.set_bytes_data((offset_original - keys.offset - Keys::offset_data) as BytesType, &mut node.data);
                     node.data.set_len(offset_original as usize);
                 }
                 Ok((mid_key, Node {
@@ -190,7 +195,7 @@ impl TryFrom<Vec<u8>> for Node {
             }
 
             NodeType::Leaf(mut leaf) => {
-                leaf.read_from(raw);
+                leaf.read_from(raw, Node::offset_node_data);
                 Ok(Node { node_type, data })
             }
             NodeType::None => Err(Error::UnexpectedError),

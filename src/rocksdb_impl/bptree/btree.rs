@@ -1,11 +1,12 @@
 use std::cmp;
 use std::convert::TryFrom;
 use std::io::BufRead;
-use std::path::{Path, PathBuf};
-use crate::datas::VecBytes;
 
+use crate::datas::{KeyMetas, VecBytes};
+use crate::rocksdb_impl::bptree::children;
+use crate::rocksdb_impl::bptree::children::Children;
 use crate::rocksdb_impl::bptree::db_key::DbKey;
-use crate::rocksdb_impl::bptree::node_type::{Children};
+use crate::rocksdb_impl::bptree::leaf_data::{KeyValue, LeafData};
 use crate::rocksdb_impl::shared::make_head_key;
 use crate::WrapDb;
 
@@ -45,8 +46,8 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     fn is_node_underflow(&self, node: &Node) -> Result<bool, Error> {
         match &node.node_type {
             // A root cannot really be "underflowing" as it can contain less than b-1 keys / pointers.
-            NodeType::Leaf(pairs) => Ok(pairs.number_keys < self.b - 1 && !node.is_root),
-            NodeType::Internal(_, keys) => Ok(keys.number_keys < self.b - 1 && !node.is_root),
+            NodeType::Leaf(pairs) => Ok(pairs.number_keys < self.b - 1 && !node.is_root()),
+            NodeType::Internal(_, keys) => Ok(keys.number_keys < self.b - 1 && !node.is_root()),
             NodeType::None => Err(Error::UnexpectedError),
         }
     }
@@ -60,17 +61,15 @@ impl<'a, T: WrapDb> BTree<'a, T> {
 
                 for _ in 0..children.number_children as isize {
                     unsafe {
-                        std::ptr::copy_nonoverlapping(self.data.as_ptr().offset(offset), child_db_key.as_mut_ptr(), DbKey::LenDbKey);
+                        std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset), child_db_key.as_mut_ptr(), DbKey::LenDbKey);
                     }
 
-                    let mut data = self.t.get(&child_db_key)?;
-                    if let Some(data) = &mut data {
-                        Node::set_parent_db_key_data(data.as_mut_slice(), parent_db_key);
-                        self.t.put(&child_db_key, data.as_slice())?;
-                    } else {
-                        return Err(Error::KeyNotFound);
-                    }
-                    offset += DbKey::LenDbKey;
+                    let mut data = self.t.get(&child_db_key)?.ok_or(Error::KeyNotFound)?;
+
+                    Node::set_parent_db_key_data(data.as_mut_slice(), parent_db_key);
+                    self.t.put(&child_db_key, data.as_slice())?;
+
+                    offset += DbKey::LenDbKey as isize;
                 }
             }
             NodeType::Leaf(leaf) => {
@@ -87,7 +86,7 @@ impl<'a, T: WrapDb> BTree<'a, T> {
         let mut new_root: Node;
         let head_key = make_head_key(self.key);
         let mut root = {
-            match self.t.get(&head_key) {
+            match self.t.get(&head_key)? {
                 Some(data) => Node::try_from(data)?,
                 None => Node::new(NodeType::Internal(Children::new(), VecBytes::new()))
             }
@@ -95,16 +94,17 @@ impl<'a, T: WrapDb> BTree<'a, T> {
 
         if self.is_node_full(&root)? {
             // split the root creating a new root and child nodes along the way.
-            let (median, mut sibling) = root.split( self.b)?;
-            root.set_is_root(false);
-            sibling.set_is_root(false);
-
+            let (median, mut sibling) = root.split(self.b)?;
             new_root = Node::new(NodeType::Internal(Children::new(), VecBytes::new()));
-            new_root.set_is_root(true);
-            Children::add(&mut new_root, &vec![root.db_key().key(), sibling.db_key().key()]);
-            VecBytes::add(&mut new_root, &vec![median.as_slice()]);
+            new_root.set_parent_none();
+
             root.set_parent_db_key(new_root.db_key().key());
             sibling.set_parent_db_key(new_root.db_key().key());
+
+            let children = Children::add(&mut new_root, &vec![root.db_key().key(), sibling.db_key().key()]);
+
+            VecBytes::<KeyMetas>::add(&mut new_root.data, children.offset_keys(), &vec![median.as_slice()]);
+
             self.t.put(sibling.db_key().key(), &sibling.data)?;
             self.t.put(root.db_key().key(), &root.data)?;
             self.t.put(new_root.db_key().key(), &new_root.data)?;
@@ -134,58 +134,47 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     ) -> Result<(), Error> {
         match &mut node.node_type {
             NodeType::Leaf(ref mut pairs) => {
-                let idx = pairs.binary_search(&kv).unwrap_or_else(|x| x);
-                pairs.insert(idx, kv);
-                self.pager
-                    .write_page_at_offset(Page::try_from(&*node)?, &node_offset)
+                let kv = KeyValue::to_vec(k, v);
+                pairs.insert_with_index(&mut node.data, kv.as_slice(), None);
+                self.t.put(node.db_key().key(), &node.data)?;
+                Ok(())
             }
             NodeType::Internal(ref mut children, ref mut keys) => {
-                let idx = keys
-                    .binary_search(&Key(kv.key.clone()))
-                    .unwrap_or_else(|x| x);
-                let child_offset = children.get(idx).ok_or(Error::UnexpectedError)?.clone();
-                let child_page = self.pager.get_page(&child_offset)?;
-                let mut child = Node::try_from(child_page)?;
-                // Copy each branching-node on the root-to-leaf walk.
-                // write_page appends the given page to the db file thus creating a new node.
-                let new_child_offset = self.pager.write_page(Page::try_from(&child)?)?;
-                // Assign copied child at the proper place.
-                children[idx] = new_child_offset.to_owned();
+                let idx = keys.binary_search(&mut node.data, k).unwrap_or_else(|x| x);
+                let child_db_key = children.get(&node.data, idx);
+                let bytes = self.t.get(child_db_key.key())?.ok_or(Error::KeyNotFound)?;
+                let mut child = Node::try_from(bytes)?;
                 if self.is_node_full(&child)? {
-                    // split will split the child at b leaving the [0, b-1] keys
-                    // while moving the set of [b, 2b-1] keys to the sibling.
-                    // let (mediao, mut ) = Node::split(&mut child, self.b)?;
                     let (median, mut sibling) = child.split(self.b)?;
-                    self.pager
-                        .write_page_at_offset(Page::try_from(&child)?, &new_child_offset)?;
-                    // Write the newly created sibling to disk.
-                    let sibling_offset = self.pager.write_page(Page::try_from(&sibling)?)?;
-                    // Siblings keys are larger than the splitted child thus need to be inserted
-                    // at the next index.
-                    children.insert(idx + 1, sibling_offset.clone());
+                    sibling.set_parent_db_key(node.db_key().key());
+                    children.insert(idx + 1, sibling.db_key().key());
                     keys.insert(idx, median.clone());
 
-                    // Write the parent page to disk.
-                    self.pager
-                        .write_page_at_offset(Page::try_from(&*node)?, &node_offset)?;
-                    // Continue recursively.
-                    if kv.key <= median.0 {
-                        self.insert_non_full(&mut child, new_child_offset, kv)
+                    self.t.put(sibling.db_key().key(), &sibling.data)?;
+                    self.t.put(child.db_key().key(), &child.data)?;
+                    //sibling的所有中的child的每一个 parent_key已变化，所以需要更新
+                    self.set_parent_of_children(&mut sibling)?;
+
+
+                    if k <= median.0 {
+                        self.insert_non_full(&mut child, k, v)
                     } else {
-                        self.insert_non_full(&mut sibling, sibling_offset, kv)
+                        self.insert_non_full(&mut sibling, k, v)
                     }
                 } else {
-                    self.pager
-                        .write_page_at_offset(Page::try_from(&*node)?, &node_offset)?;
-                    self.insert_non_full(&mut child, new_child_offset, kv)
+                    // self.pager.write_page_at_offset(Page::try_from(&*node)?, &node_offset)?;
+                    self.insert_non_full(&mut child, k, v)
                 }
+
+                self.t.put(node.db_key().key(), &node.data)?;
+                Ok(())
             }
             NodeType::None => Err(Error::UnexpectedError),
         }
     }
 
     /// search searches for a specific key in the BTree.
-    pub fn search(&mut self, key: String) -> Result<KeyValue, Error> {
+    pub fn search(&mut self, key: &[u8]) -> Result<KeyValue, Error> {
         let root_offset = self.wal.get_root()?;
         let root_page = self.pager.get_page(&root_offset)?;
         let root = Node::try_from(root_page)?;
@@ -193,11 +182,10 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     }
 
     /// search_node recursively searches a sub tree rooted at node for a key.
-    fn search_node(&mut self, node: Node, search: &str) -> Result<KeyValue, Error> {
+    fn search_node(&mut self, node: Node, search: &[u8]) -> Result<KeyValue, Error> {
         match node.node_type {
             NodeType::Internal(children, keys) => {
-                let idx = keys
-                    .binary_search(&Key(search.to_string()))
+                let idx = keys.binary_search(&node.data, search)
                     .unwrap_or_else(|x| x);
                 // Retrieve child page from disk and deserialize.
                 let child_offset = children.get(idx).ok_or(Error::UnexpectedError)?;
@@ -218,14 +206,14 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     }
 
     /// delete deletes a given key from the tree.
-    pub fn delete(&mut self, key: Key) -> Result<(), Error> {
+    pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
         let root_offset = self.wal.get_root()?;
         let root_page = self.pager.get_page(&root_offset)?;
         // Shadow the new root and rewrite it.
         let mut new_root = Node::try_from(root_page)?;
         let new_root_page = Page::try_from(&new_root)?;
         let new_root_offset = self.pager.write_page(new_root_page)?;
-        self.delete_key_from_subtree(key, &mut new_root, &new_root_offset)?;
+        self.delete_key_from_subtree(key, &mut new_root)?;
         self.wal.set_root(new_root_offset)
     }
 
@@ -234,9 +222,8 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     /// already a copy of an existing node in a copy-on-write root to node traversal.
     fn delete_key_from_subtree(
         &mut self,
-        key: Key,
+        key: &[u8],
         node: &mut Node,
-        node_offset: &Offset,
     ) -> Result<(), Error> {
         match &mut node.node_type {
             NodeType::Leaf(ref mut pairs) => {
@@ -244,8 +231,8 @@ impl<'a, T: WrapDb> BTree<'a, T> {
                     .binary_search_by_key(&key, |kv| Key(kv.key.clone()))
                     .map_err(|_| Error::KeyNotFound)?;
                 pairs.remove(key_idx);
-                self.pager
-                    .write_page_at_offset(Page::try_from(&*node)?, node_offset)?;
+                // self.pager
+                //     .write_page_at_offset(Page::try_from(&*node)?, node_offset)?;
                 // Check for underflow - if it occures,
                 // we need to merge with a sibling.
                 // this can only occur if node is not the root (as it cannot "underflow").
@@ -262,13 +249,13 @@ impl<'a, T: WrapDb> BTree<'a, T> {
                 // Fix the parent_offset as the child node is a child of a copied parent
                 // in a copy-on-write root to leaf traversal.
                 // This is important for the case of a node underflow which might require a leaf to root traversal.
-                child_node.parent_key = Some(node_offset.to_owned());
+                // child_node.parent_key = Some(node_offset.to_owned());
                 let new_child_page = Page::try_from(&child_node)?;
                 let new_child_offset = self.pager.write_page(new_child_page)?;
                 // Assign the new pointer in the parent and continue reccoursively.
                 children[node_idx] = new_child_offset.to_owned();
-                self.pager
-                    .write_page_at_offset(Page::try_from(&*node)?, node_offset)?;
+                // self.pager
+                //     .write_page_at_offset(Page::try_from(&*node)?, node_offset)?;
                 return self.delete_key_from_subtree(key, &mut child_node, &new_child_offset);
             }
             NodeType::None => return Err(Error::UnexpectedError),
@@ -280,7 +267,7 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     /// if it underflows it is merged with a sibling node, and than called recoursively
     /// up the tree. Since the downward root-to-leaf traversal was done using the copy-on-write
     /// technique we are ensured that any merges will only be reflected in the copied parent in the path.
-    fn borrow_if_needed(&mut self, node: Node, key: &Key) -> Result<(), Error> {
+    fn borrow_if_needed(&mut self, node: Node, key: &[u8]) -> Result<(), Error> {
         if self.is_node_underflow(&node)? {
             // Fetch the sibling from the parent -
             // This could be quicker if we implement sibling pointers.
@@ -339,28 +326,28 @@ impl<'a, T: WrapDb> BTree<'a, T> {
         match first.node_type {
             NodeType::Leaf(first_pairs) => {
                 if let NodeType::Leaf(second_pairs) = second.node_type {
-                    let merged_pairs: Vec<KeyValue> = first_pairs
+                    let merged_pairs: LeafData = first_pairs
                         .into_iter()
                         .chain(second_pairs.into_iter())
                         .collect();
                     let node_type = NodeType::Leaf(merged_pairs);
-                    Ok(Node::new(node_type, first.is_root, first.parent_key))
+                    Ok(Node::new(node_type))
                 } else {
                     Err(Error::UnexpectedError)
                 }
             }
             NodeType::Internal(first_offsets, first_keys) => {
                 if let NodeType::Internal(second_offsets, second_keys) = second.node_type {
-                    let merged_keys: Vec<Key> = first_keys
+                    let merged_keys = first_keys
                         .into_iter()
                         .chain(second_keys.into_iter())
                         .collect();
-                    let merged_offsets: Vec<Offset> = first_offsets
+                    let merged_offsets = first_offsets
                         .into_iter()
                         .chain(second_offsets.into_iter())
                         .collect();
                     let node_type = NodeType::Internal(merged_offsets, merged_keys);
-                    Ok(Node::new(node_type, first.is_root, first.parent_key))
+                    Ok(Node::new(node_type))
                 } else {
                     Err(Error::UnexpectedError)
                 }
@@ -370,18 +357,18 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     }
 
     /// print_sub_tree is a helper function for recursively printing the nodes rooted at a node given by its offset.
-    fn print_sub_tree(&mut self, prefix: String, offset: Offset) -> Result<(), Error> {
-        println!("{}Node at offset: {}", prefix, offset.0);
+    fn print_sub_tree(&mut self, prefix: String) -> Result<(), Error> {
+        // println!("{}Node at offset: {}", prefix, offset.0);
         let curr_prefix = format!("{}|->", prefix);
-        let page = self.pager.get_page(&offset)?;
-        let node = Node::try_from(page)?;
+        // let page = self.pager.get_page(&offset)?;
+        let node = Node::try_from(vec![])?;
         match node.node_type {
             NodeType::Internal(children, keys) => {
                 println!("{}Keys: {:?}", curr_prefix, keys);
                 println!("{}Children: {:?}", curr_prefix, children);
                 let child_prefix = format!("{}   |  ", prefix);
                 for child_offset in children {
-                    self.print_sub_tree(child_prefix.clone(), child_offset)?;
+                    self.print_sub_tree(child_prefix.clone())?;
                 }
                 Ok(())
             }
@@ -397,6 +384,6 @@ impl<'a, T: WrapDb> BTree<'a, T> {
     pub fn print(&mut self) -> Result<(), Error> {
         println!();
         let root_offset = self.wal.get_root()?;
-        self.print_sub_tree("".to_string(), root_offset)
+        self.print_sub_tree("".to_string())
     }
 }

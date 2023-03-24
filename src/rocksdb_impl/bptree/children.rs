@@ -43,6 +43,11 @@ impl Children {
         }
     }
 
+    pub fn get(&self, data: &[u8], index: usize) -> DbKey {
+        let start = self.offset as usize + Children::offset_data as usize + index * DbKey::LenDbKey;
+        DbKey::from(&data[start..])
+    }
+
     pub fn set_number_children(&mut self, number_children: LenType, data: &mut [u8]) {
         self.number_children = number_children;
         self.bytes_number = self.number_children as BytesType * DbKey::LenDbKey as BytesType;
@@ -56,7 +61,7 @@ impl Children {
         self.offset + self.bytes_number as isize + Children::offset_data as isize
     }
 
-    pub fn add(node: &mut Node, children: &[&[u8]]) {
+    pub fn add(node: &mut Node, children: &[&[u8]]) -> Children {
         if let NodeType::Internal(old_children, _) = &mut node.node_type {
             let mut new_bytes = DbKey::LenDbKey * children.len();
             node.data.reserve_exact(new_bytes);
@@ -74,6 +79,7 @@ impl Children {
                 offset_keys += k.len() as isize;
             }
             old_children.set_number_children(old_children.number_children + children.len() as LenType, &mut node.data);
+            old_children.clone()
         } else {
             panic!("the node type is not Internal");
         }
