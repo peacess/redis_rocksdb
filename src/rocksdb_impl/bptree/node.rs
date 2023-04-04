@@ -35,12 +35,13 @@ impl Node {
             node_type,
             data,
         };
-        node.set_node_type(&node.node_type, &vec![]);
+        node.set_node_type(&vec![]);
         node.make_db_key();
         node
     }
 
-    pub fn set_node_type(&mut self, node_type: &NodeType, data: &[u8]) {
+    pub fn set_node_type(&mut self, data: &[u8]) {
+        let node_type = &self.node_type;
         match node_type {
             NodeType::None => {
                 unsafe { self.data.set_len(Node::offset_node_data as usize); }
@@ -187,16 +188,16 @@ impl TryFrom<Vec<u8>> for Node {
         let raw = data.as_slice();
         let node_type = NodeType::from(raw[Node::offset_node_type as usize]);
 
-        match &node_type {
+        match node_type {
             NodeType::Internal(mut children, mut keys) => {
                 children.read_from(raw);
                 keys.read_from(raw, children.offset_keys());
-                Ok(Node { node_type, data })
+                Ok(Node { node_type: NodeType::Internal(children, keys), data })
             }
 
             NodeType::Leaf(mut leaf) => {
                 leaf.read_from(raw, Node::offset_node_data);
-                Ok(Node { node_type, data })
+                Ok(Node { node_type: NodeType::Leaf(leaf), data })
             }
             NodeType::None => Err(Error::UnexpectedError),
         }

@@ -10,7 +10,7 @@ impl<T: WrapDb> BPTree<T> for BPTreeImpl {
     fn set_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
         let field_key = make_field_key(key, field);
         if t.exist(&field_key)? {
-            let head_key = make_head_key(key);
+            // let head_key = make_head_key(key);
             // let mut heap = {
             //     match t.get(&head_key)? {
             //         None => FieldHeap::new(vec![]),
