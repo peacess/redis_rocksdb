@@ -44,13 +44,13 @@ impl Children {
     }
 
     pub fn get(&self, data: &[u8], index: usize) -> DbKey {
-        let start = self.offset as usize + Children::offset_data as usize + index * DbKey::LenDbKey;
+        let start = self.offset as usize + Children::offset_data as usize + index * DbKey::LEN_DB_KEY;
         DbKey::from(&data[start..])
     }
 
     pub fn set_number_children(&mut self, number_children: LenType, data: &mut [u8]) {
         self.number_children = number_children;
-        self.bytes_number = self.number_children as BytesType * DbKey::LenDbKey as BytesType;
+        self.bytes_number = self.number_children as BytesType * DbKey::LEN_DB_KEY as BytesType;
         unsafe {
             write_int_ptr(data.as_mut_ptr().offset(self.offset), self.number_children);
             write_int_ptr(data.as_mut_ptr().offset(self.offset + size_of::<LenType>() as isize), self.bytes_number);
@@ -63,7 +63,7 @@ impl Children {
 
     pub fn add(node: &mut Node, children: &[&[u8]]) -> Children {
         if let NodeType::Internal(old_children, _) = &mut node.node_type {
-            let mut new_bytes = DbKey::LenDbKey * children.len();
+            let mut new_bytes = DbKey::LEN_DB_KEY * children.len();
             node.data.reserve_exact(new_bytes);
             unsafe {//移动keys的数据
                 let old = old_children.number_children;

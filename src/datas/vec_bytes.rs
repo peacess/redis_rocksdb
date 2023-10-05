@@ -52,8 +52,8 @@ pub struct VecBytes<T: Metas> {
 }
 
 impl<T: Metas> VecBytes<T> {
-    pub const offset_data: isize = (size_of::<LenType>() + size_of::<BytesType>()) as isize;
-    pub const offset_meta: isize = Self::offset_data + size_of::<u64>() as isize;
+    pub const OFFSET_DATA: isize = (size_of::<LenType>() + size_of::<BytesType>()) as isize;
+    pub const OFFSET_META: isize = Self::OFFSET_DATA + size_of::<u64>() as isize;
     ///一次分配大小，这样不用每增加一个元素就分配一次
     pub const ONE_EXPAND: isize = 64 * (size_of::<BytesMeta>() as isize);
 
@@ -89,7 +89,7 @@ impl<T: Metas> VecBytes<T> {
         unsafe {
             self.number_keys = read_int_ptr(data.as_ptr().offset(self.offset));
             self.bytes_data = read_int_ptr(data.as_ptr().offset(self.offset + size_of::<LenType>() as isize));
-            self.metas_capacity = read_int_ptr(data.as_ptr().offset(Self::offset_data));
+            self.metas_capacity = read_int_ptr(data.as_ptr().offset(Self::OFFSET_DATA));
         }
     }
 
@@ -98,10 +98,10 @@ impl<T: Metas> VecBytes<T> {
         if self.is_expand() {
             self.expand(data);
         }
-        let mut add_bytes = Self::compute_new_bytes(key);
+        let add_bytes = Self::compute_new_bytes(key);
         data.reserve_exact(add_bytes as usize);
 
-        let start = self.offset + Self::offset_data + self.metas_capacity as isize + self.bytes_data as isize;
+        let start = self.offset + Self::OFFSET_DATA + self.metas_capacity as isize + self.bytes_data as isize;
         unsafe {
             write_int_ptr(data.as_mut_ptr().offset(start), key.len() as BytesType);
             write_int_ptr(data.as_mut_ptr().offset(start + size_of::<BytesType>() as isize + key.len() as isize), key.len() as BytesType);
@@ -109,11 +109,11 @@ impl<T: Metas> VecBytes<T> {
         }
 
         {
-            let mut meta = T::new(data, Self::offset_meta, self.number_keys, (self.metas_capacity as usize / size_of::<MetaKey>()) as i64);
+            let mut meta = T::new(data, Self::OFFSET_META, self.number_keys, (self.metas_capacity as usize / size_of::<MetaKey>()) as i64);
             let index = match index {
                 Some(i) => i,
                 None => {
-                    match meta.search(data.as_slice(), self.offset + Self::offset_meta + self.metas_capacity as isize, key) {
+                    match meta.search(data.as_slice(), self.offset + Self::OFFSET_META + self.metas_capacity as isize, key) {
                         Ok(i) => i,
                         Err(i) => i
                     }
@@ -143,9 +143,9 @@ impl<T: Metas> VecBytes<T> {
     }
 
     pub fn binary_search(&self, data: &[u8], key: &[u8]) -> Result<usize, usize> {
-        let mut data = data;
-        let mut meta = T::new(data, Self::offset_meta, self.number_keys, (self.metas_capacity as usize / size_of::<MetaKey>()) as i64);
-        meta.search(data, self.offset + Self::offset_meta + self.metas_capacity as isize, key)
+        let data = data;
+        let meta = T::new(data, Self::OFFSET_META, self.number_keys, (self.metas_capacity as usize / size_of::<MetaKey>()) as i64);
+        meta.search(data, self.offset + Self::OFFSET_META + self.metas_capacity as isize, key)
     }
 
     fn compute_new_bytes(key: &[u8]) -> BytesType {
@@ -167,8 +167,8 @@ impl<T: Metas> VecBytes<T> {
         }
         let old_metas_capacity = self.metas_capacity as isize;
         unsafe {
-            let p_data = data.as_mut_ptr().offset(Self::offset_meta + old_metas_capacity);
-            ptr::copy(p_data, p_data.offset(expand_size as isize), data.len() - expand_size as usize - Self::offset_meta as usize - old_metas_capacity as usize);
+            let p_data = data.as_mut_ptr().offset(Self::OFFSET_META + old_metas_capacity);
+            ptr::copy(p_data, p_data.offset(expand_size as isize), data.len() - expand_size as usize - Self::OFFSET_META as usize - old_metas_capacity as usize);
             write_int_ptr(data.as_mut_ptr().offset(size_of::<LenType>() as isize), old_metas_capacity as LenType + expand_size as LenType);
         };
         self.metas_capacity = old_metas_capacity as u64 + expand_size as u64;
@@ -176,13 +176,13 @@ impl<T: Metas> VecBytes<T> {
 
     fn reduce(&mut self, data: &mut Vec<u8>) {
         let reduce_size = Self::ONE_EXPAND as isize;
-        let mut temp_fields = Vec::<u8>::with_capacity(data.len() - self.metas_capacity as usize - Self::offset_meta as usize);
+        let mut temp_fields = Vec::<u8>::with_capacity(data.len() - self.metas_capacity as usize - Self::OFFSET_META as usize);
 
         let mut head_array = unsafe {
-            Vec::from_raw_parts(data.as_mut_ptr().offset(Self::offset_meta as isize) as *mut BytesMeta, self.number_keys as usize, self.metas_capacity as usize / mem::size_of::<BytesMeta>())
+            Vec::from_raw_parts(data.as_mut_ptr().offset(Self::OFFSET_META as isize) as *mut BytesMeta, self.number_keys as usize, self.metas_capacity as usize / mem::size_of::<BytesMeta>())
         };
         let mut offset = 0;
-        let p_data = unsafe { data.as_ptr().offset(Self::offset_meta + self.metas_capacity as isize) };
+        let p_data = unsafe { data.as_ptr().offset(Self::OFFSET_META + self.metas_capacity as isize) };
         for field_meta in &mut head_array {
             let start = field_meta.offset as isize;
             let field_size = unsafe { read_int_ptr::<BytesType>(p_data.offset(start)) };
@@ -198,8 +198,8 @@ impl<T: Metas> VecBytes<T> {
         unsafe {
             temp_fields.set_len(offset as usize);
             write_int_ptr(data.as_mut_ptr().offset(size_of::<LenType>() as isize), self.metas_capacity as LenType);
-            ptr::copy_nonoverlapping(temp_fields.as_ptr(), data.as_mut_ptr().offset(Self::offset_meta + self.metas_capacity as isize), temp_fields.len());
-            data.set_len((Self::offset_meta as usize + self.metas_capacity as usize + temp_fields.len()) as usize);
+            ptr::copy_nonoverlapping(temp_fields.as_ptr(), data.as_mut_ptr().offset(Self::OFFSET_META + self.metas_capacity as isize), temp_fields.len());
+            data.set_len((Self::OFFSET_META as usize + self.metas_capacity as usize + temp_fields.len()) as usize);
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::{BPTree, LenType, RrError, WrapDb};
-use crate::rocksdb_impl::shared::{make_field_key, make_head_key};
+use crate::rocksdb_impl::shared::make_field_key;
 
 /// see
 /// [Writing a storage engine in Rust: Writing a persistent BTree (Part 1)] (https://nimrodshn.medium.com/writing-a-storage-engine-in-rust-writing-a-persistent-btree-part-1-916b6f3e2934)

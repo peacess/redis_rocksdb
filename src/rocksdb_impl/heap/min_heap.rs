@@ -109,9 +109,6 @@ impl<T: WrapDb> Heap<T> for MinHeap {
 
 #[cfg(test)]
 mod test {
-    use crate::Heap;
-    use crate::MinHeap;
-
     #[test]
     fn test_min_heap_transactiondb() {
         // let heap = MinHeap {};

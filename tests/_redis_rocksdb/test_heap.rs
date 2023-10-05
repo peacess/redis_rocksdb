@@ -118,7 +118,7 @@ mod sample{
         let field = vec![6 as u8, 7, 8];
         let value = "data".to_owned();
 
-        let _ = max_heap.push(&wrap_db, &field, value.as_bytes());
+        let _ = max_heap.push(&wrap_db, &key, &field, value.as_bytes());
         let _ = max_heap.pop(&wrap_db, &key);
     }
 }

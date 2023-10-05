@@ -1,13 +1,3 @@
-use std::cmp;
-use std::convert::TryFrom;
-use std::io::BufRead;
-
-use crate::datas::{KeyMetas, VecBytes};
-use crate::rocksdb_impl::bptree::children;
-use crate::rocksdb_impl::bptree::children::Children;
-use crate::rocksdb_impl::bptree::db_key::DbKey;
-use crate::rocksdb_impl::bptree::leaf_data::{KeyValue, LeafData};
-use crate::rocksdb_impl::shared::make_head_key;
 use crate::WrapDb;
 
 use super::error::Error;
@@ -55,13 +45,13 @@ impl<'a, T: WrapDb> BTree<'a, T> {
 //     fn set_parent_of_children(&self, node: &mut Node) -> Result<(), Error> {
 //         match &node.node_type {
 //             NodeType::Internal(children, _) => {
-//                 let mut offset = children.offset + Children::offset_data;
-//                 let mut child_db_key = DbKey::ZeroKey.clone();
+//                 let mut offset = children.offset + Children::OFFSET_DATA;
+//                 let mut child_db_key = DbKey::ZERO_KEY.clone();
 //                 let parent_db_key = node.parent_db_key().key();
 //
 //                 for _ in 0..children.number_children as isize {
 //                     unsafe {
-//                         std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset), child_db_key.as_mut_ptr(), DbKey::LenDbKey);
+//                         std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset), child_db_key.as_mut_ptr(), DbKey::LEN_DB_KEY);
 //                     }
 //
 //                     let mut data = self.t.get(&child_db_key)?.ok_or(Error::KeyNotFound)?;
@@ -69,7 +59,7 @@ impl<'a, T: WrapDb> BTree<'a, T> {
 //                     Node::set_parent_db_key_data(data.as_mut_slice(), parent_db_key);
 //                     self.t.put(&child_db_key, data.as_slice())?;
 //
-//                     offset += DbKey::LenDbKey as isize;
+//                     offset += DbKey::LEN_DB_KEY as isize;
 //                 }
 //             }
 //             NodeType::Leaf(leaf) => {

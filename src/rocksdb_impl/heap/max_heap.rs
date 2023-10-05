@@ -109,9 +109,6 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
 
 #[cfg(test)]
 mod test {
-    use crate::Heap;
-    use crate::MaxHeap;
-
     #[test]
     fn test_max_heap_transactiondb() {
         // let heap = MaxHeap {};

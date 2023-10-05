@@ -24,8 +24,8 @@ impl Node {
     /// Common Node header layout (Ten bytes in total)
     pub const offset_node_type: isize = 0;
     pub const offset_db_key: isize = Node::offset_node_type + size_of::<u8>() as isize;
-    pub const offset_parent_db_key: isize = Node::offset_db_key + DbKey::LenDbKey as isize;
-    pub const offset_node_data: isize = Node::offset_parent_db_key + DbKey::LenDbKey as isize;
+    pub const offset_parent_db_key: isize = Node::offset_db_key + DbKey::LEN_DB_KEY as isize;
+    pub const offset_node_data: isize = Node::offset_parent_db_key + DbKey::LEN_DB_KEY as isize;
 
     pub fn new(node_type: NodeType) -> Node {
         let mut data = Vec::with_capacity(Node::offset_node_data as usize);
@@ -75,7 +75,7 @@ impl Node {
 
     pub fn is_root(&self) -> bool {
         let parent = self.parent_db_key();
-        parent.key().eq(&DbKey::ZeroKey)
+        parent.key().eq(&DbKey::ZERO_KEY)
     }
 
     pub fn make_db_key(&mut self) {
@@ -84,7 +84,7 @@ impl Node {
     }
 
     pub fn db_key(&self) -> DbKey {
-        DbKey::from(&self.data[Node::offset_db_key as usize..Node::offset_db_key as usize + DbKey::LenDbKey])
+        DbKey::from(&self.data[Node::offset_db_key as usize..Node::offset_db_key as usize + DbKey::LEN_DB_KEY])
     }
 
     pub fn set_db_key(&mut self, key: &[u8]) {
@@ -94,14 +94,14 @@ impl Node {
     }
 
     pub fn parent_db_key(&self) -> DbKey {
-        DbKey::from(&self.data[Node::offset_parent_db_key as usize..Node::offset_parent_db_key as usize + DbKey::LenDbKey])
+        DbKey::from(&self.data[Node::offset_parent_db_key as usize..Node::offset_parent_db_key as usize + DbKey::LEN_DB_KEY])
     }
     pub fn set_parent_db_key(&mut self, key: &[u8]) {
         Node::set_parent_db_key_data(&mut self.data, key);
     }
 
     pub fn set_parent_none(&mut self) {
-        Node::set_parent_db_key_data(&mut self.data, &DbKey::ZeroKey);
+        Node::set_parent_db_key_data(&mut self.data, &DbKey::ZERO_KEY);
     }
 
     pub fn set_parent_db_key_data(data: &mut [u8], key: &[u8]) {
@@ -129,8 +129,8 @@ impl Node {
                     new_children.set_number_children(children.number_children - at as LenType, &mut new_data);
                     children.set_number_children(at as LenType, &mut node.data);
 
-                    let start = new_offset + Children::offset_data + children.number_children as isize * DbKey::LenDbKey as isize;
-                    let count = new_children.number_children as usize * DbKey::LenDbKey;
+                    let start = new_offset + Children::offset_data + children.number_children as isize * DbKey::LEN_DB_KEY as isize;
+                    let count = new_children.number_children as usize * DbKey::LEN_DB_KEY;
                     std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(start), new_data.as_mut_ptr().offset(Node::offset_node_data as isize + Children::offset_data), count);
 
                     std::ptr::copy(node.data.as_ptr().offset(start + count as isize), node.data.as_mut_ptr().offset(start), node.data.len() - start as usize - count);
@@ -139,7 +139,7 @@ impl Node {
                 new_keys.offset = new_children.offset_keys();
                 new_keys.set_number_keys(at as LenType - 1, &mut new_data);
 
-                let mut offset_original = keys.offset + Keys::offset_data;
+                let mut offset_original = keys.offset + Keys::OFFSET_DATA;
                 unsafe {
                     for i in 0..keys.number_keys {
                         if i as usize == at {
@@ -149,7 +149,7 @@ impl Node {
                             std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(offset_original + size_of::<BytesType>() as isize), new_data.as_mut_ptr(), mid_key.len());
                             let temp_offset = offset_original + b as isize + size_of::<BytesType>() as isize;
 
-                            let new_offset = new_keys.offset + Keys::offset_data;
+                            let new_offset = new_keys.offset + Keys::OFFSET_DATA;
                             new_keys.set_bytes_data(node.data.len() as BytesType - temp_offset as BytesType, &mut new_data);
                             std::ptr::copy_nonoverlapping(node.data.as_ptr().offset(temp_offset), new_data.as_mut_ptr().offset(new_offset), new_keys.bytes_data as usize);
                             break;
@@ -158,7 +158,7 @@ impl Node {
                         offset_original += b as isize + size_of::<BytesType>() as isize;
                     }
                     keys.set_number_keys(at as LenType - 1, &mut node.data);
-                    keys.set_bytes_data((offset_original - keys.offset - Keys::offset_data) as BytesType, &mut node.data);
+                    keys.set_bytes_data((offset_original - keys.offset - Keys::OFFSET_DATA) as BytesType, &mut node.data);
                     node.data.set_len(offset_original as usize);
                 }
                 Ok((mid_key, Node {
