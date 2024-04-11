@@ -10,15 +10,15 @@ use crate::{Bytes, LenType, RedisList, RedisRocksdb, RrError};
 ///
 /// redis中的list使用quicklist与ziplist实现
 impl RedisList for RedisRocksdb {
-	fn list_blpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError> {
+	fn list_blpop<K: Bytes, V: Bytes>(&mut self, _key: &K, _timeout: i64) -> Result<V, RrError> {
 		todo!()
 	}
 
-	fn list_brpop<K: Bytes, V: Bytes>(&mut self, key: &K, timeout: i64) -> Result<V, RrError> {
+	fn list_brpop<K: Bytes, V: Bytes>(&mut self, _key: &K, _timeout: i64) -> Result<V, RrError> {
 		todo!()
 	}
 
-	fn list_brpoplpush<K: Bytes, V: Bytes>(&mut self, srckey: &K, dstkey: &K, timeout: i64) -> Result<V, RrError> {
+	fn list_brpoplpush<K: Bytes, V: Bytes>(&mut self, _srckey: &K, _dstkey: &K, _timeout: i64) -> Result<V, RrError> {
 		todo!()
 	}
 
@@ -251,7 +251,7 @@ impl RedisList for RedisRocksdb {
 				let zip_key = node.values_key().ok_or(RrError::none_error("zip key"))?.clone();
 				let mut zip = ZipList::get(&tr, zip_key.as_ref())?.ok_or(RrError::none_error("zip"))?;
 
-				let mut will_count = count as i32 - rem_count as i32;
+				let will_count = count as i32 - rem_count as i32;
 				let done = zip.rem(-will_count, value.as_ref());
 				rem_count += done;
 
@@ -303,7 +303,7 @@ impl RedisList for RedisRocksdb {
 		Ok(rem_count)
 	}
 
-	fn list_trim<K: Bytes>(&mut self, key: K, start: i32, stop: i32) -> Result<i32, RrError> {
+	fn list_trim<K: Bytes>(&mut self, _key: K, _start: i32, _stop: i32) -> Result<i32, RrError> {
 		todo!()
 	}
 
@@ -359,7 +359,7 @@ impl RedisList for RedisRocksdb {
 				quick.set_len_node(0);
 				tr.put(key.as_ref(), quick)?;
 			} else {
-				let left = node.left();
+				let _left = node.left();
 				quick.set_right(&node.left());
 				quick.set_len_node(quick.len_node() - 1);
 				quick.set_len_list(quick.len_list() - 1);
@@ -380,7 +380,7 @@ impl RedisList for RedisRocksdb {
 		Ok(value)
 	}
 
-	fn list_replace_back<K: Bytes, V: Bytes>(&mut self, key: &K, dstkey: &K) -> Result<V, RrError> {
+	fn list_replace_back<K: Bytes, V: Bytes>(&mut self, _key: &K, _dstkey: &K) -> Result<V, RrError> {
 		todo!()
 	}
 

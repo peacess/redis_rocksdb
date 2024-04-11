@@ -55,11 +55,11 @@ impl Children {
 
 	pub fn add(node: &mut Node, children: &[&[u8]]) -> Children {
 		if let NodeType::Internal(old_children, _) = &mut node.node_type {
-			let mut new_bytes = DbKey::LEN_DB_KEY * children.len();
+			let new_bytes = DbKey::LEN_DB_KEY * children.len();
 			node.data.reserve_exact(new_bytes);
 			unsafe {
 				//移动keys的数据
-				let old = old_children.number_children;
+				let _old = old_children.number_children;
 				let offset_keys = old_children.offset + Children::OFFSET_DATA + old_children.bytes_number as isize;
 				std::ptr::copy(
 					node.data.as_mut_ptr().offset(offset_keys),

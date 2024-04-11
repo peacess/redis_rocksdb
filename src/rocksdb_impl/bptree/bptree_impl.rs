@@ -26,43 +26,43 @@ impl<T: WrapDb> BPTree<T> for BPTreeImpl {
 		Ok(())
 	}
 
-	fn set_not_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
+	fn set_not_exist(&self, _t: &T, _key: &[u8], _field: &[u8], _value: &[u8]) -> Result<(), RrError> {
 		todo!()
 	}
 
-	fn set(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError> {
+	fn set(&self, _t: &T, _key: &[u8], _field: &[u8], _value: &[u8]) -> Result<(), RrError> {
 		todo!()
 	}
 
-	fn del_first(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+	fn del_first(&self, _t: &T, _key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
 		todo!()
 	}
 
-	fn del_last(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+	fn del_last(&self, _t: &T, _key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
 		todo!()
 	}
 
-	fn del(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
+	fn del(&self, _t: &T, _key: &[u8], _field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
 		todo!()
 	}
 
-	fn get_first(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+	fn get_first(&self, _t: &T, _key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
 		todo!()
 	}
 
-	fn get_last(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
+	fn get_last(&self, _t: &T, _key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError> {
 		todo!()
 	}
 
-	fn get(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
+	fn get(&self, _t: &T, _key: &[u8], _field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
 		todo!()
 	}
 
-	fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError> {
+	fn len(&self, _t: &T, _key: &[u8]) -> Result<Option<LenType>, RrError> {
 		todo!()
 	}
 
-	fn del_key(&self, t: &T, key: &[u8]) -> Result<(), RrError> {
+	fn del_key(&self, _t: &T, _key: &[u8]) -> Result<(), RrError> {
 		todo!()
 	}
 }

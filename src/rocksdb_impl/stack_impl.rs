@@ -4,7 +4,7 @@ use std::ptr;
 use crate::{read_int, write_int, Bytes, RedisRocksdb, RrError, Stack};
 
 impl Stack for RedisRocksdb {
-	fn index<K: Bytes>(&self, key: &K, index: i64) -> Result<Vec<u8>, RrError> {
+	fn index<K: Bytes>(&self, key: &K, _index: i64) -> Result<Vec<u8>, RrError> {
 		let stack = StackHeader::get_stack(&self.db, key.as_ref())?;
 		match stack {
 			None => Ok(vec![]),
@@ -12,43 +12,43 @@ impl Stack for RedisRocksdb {
 		}
 	}
 
-	fn len<K: Bytes>(&self, key: &K) -> Result<i64, RrError> {
+	fn len<K: Bytes>(&self, _key: &K) -> Result<i64, RrError> {
 		todo!()
 	}
 
-	fn push<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i64, RrError> {
+	fn push<K: Bytes, V: Bytes>(&mut self, _key: &K, _value: &V) -> Result<i64, RrError> {
 		todo!()
 	}
 
-	fn pushs<K: Bytes, V: Bytes>(&mut self, key: &K, values: &[&V]) -> Result<i64, RrError> {
+	fn pushs<K: Bytes, V: Bytes>(&mut self, _key: &K, _values: &[&V]) -> Result<i64, RrError> {
 		todo!()
 	}
 
-	fn push_exists<K: Bytes, V: Bytes>(&mut self, key: &K, value: &V) -> Result<i64, RrError> {
+	fn push_exists<K: Bytes, V: Bytes>(&mut self, _key: &K, _value: &V) -> Result<i64, RrError> {
 		todo!()
 	}
 
-	fn range<K: Bytes>(&self, key: &K, start: i64, stop: i64) -> Result<Vec<Vec<u8>>, RrError> {
+	fn range<K: Bytes>(&self, _key: &K, _start: i64, _stop: i64) -> Result<Vec<Vec<u8>>, RrError> {
 		todo!()
 	}
 
-	fn set<K: Bytes, V: Bytes>(&mut self, key: &K, index: i64, value: &V) -> Result<Vec<u8>, RrError> {
+	fn set<K: Bytes, V: Bytes>(&mut self, _key: &K, _index: i64, _value: &V) -> Result<Vec<u8>, RrError> {
 		todo!()
 	}
 
-	fn pop<K: Bytes>(&self, key: &K) -> Result<Vec<u8>, RrError> {
+	fn pop<K: Bytes>(&self, _key: &K) -> Result<Vec<u8>, RrError> {
 		todo!()
 	}
 
-	fn pops<K: Bytes>(&self, key: &K, amount: u64) -> Result<Vec<Vec<u8>>, RrError> {
+	fn pops<K: Bytes>(&self, _key: &K, _amount: u64) -> Result<Vec<Vec<u8>>, RrError> {
 		todo!()
 	}
 
-	fn poplpush<K: Bytes, V: Bytes>(&mut self, key: &K, dstkey: &K) -> Result<V, RrError> {
+	fn poplpush<K: Bytes, V: Bytes>(&mut self, _key: &K, _dstkey: &K) -> Result<V, RrError> {
 		todo!()
 	}
 
-	fn clear<K: Bytes>(&mut self, key: &K) -> Result<i64, RrError> {
+	fn clear<K: Bytes>(&mut self, _key: &K) -> Result<i64, RrError> {
 		todo!()
 	}
 }
@@ -101,7 +101,7 @@ impl StackHeader {
 			},
 		}
 	}
-	fn get_index(&self, db: &rocksdb::TransactionDB, key: &[u8], index: i64) -> Result<Vec<u8>, RrError> {
+	fn get_index(&self, db: &rocksdb::TransactionDB, key: &[u8], _index: i64) -> Result<Vec<u8>, RrError> {
 		let v = db.get(key)?;
 		match v {
 			None => Ok(vec![]),

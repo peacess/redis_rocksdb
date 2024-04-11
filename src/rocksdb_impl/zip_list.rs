@@ -466,14 +466,13 @@ impl ZipList {
 	/// 返回值 (start_in_index, stop_in_index)
 	pub fn count_in_index(len: LenType, offset: usize, start_index: usize, stop_index: usize) -> Option<(usize, usize)> {
 		let len = len as usize;
-		let start_in_index: usize;
 		let mut stop_in_index: usize;
 
 		if start_index >= len + offset || stop_index < offset {
 			return None;
 		}
 
-		start_in_index = start_index - offset;
+		let start_in_index = start_index - offset;
 		stop_in_index = start_in_index + (stop_index - start_index);
 		if stop_in_index >= len {
 			stop_in_index = len - 1;

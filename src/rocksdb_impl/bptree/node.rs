@@ -186,7 +186,7 @@ impl Node {
 				}
 				Ok((mid_key, Node { node_type: NodeType::Internal(new_children, new_keys), data: new_data }))
 			},
-			NodeType::Leaf(leaf) => {
+			NodeType::Leaf(_leaf) => {
 				//todo
 				let new_leaf = LeafData::new();
 				let new_data = Vec::with_capacity(Node::OFFSET_NODE_DATA as usize);
