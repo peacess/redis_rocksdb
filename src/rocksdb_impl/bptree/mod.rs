@@ -6,11 +6,11 @@
 // pub use wal::*;
 
 mod bptree_impl;
-mod node;
-mod node_type;
+mod btree;
 mod children;
-mod leaf_data;
 mod db_key;
 mod error;
-mod btree;
 mod kits;
+mod leaf_data;
+mod node;
+mod node_type;

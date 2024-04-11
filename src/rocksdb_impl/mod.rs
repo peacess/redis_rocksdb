@@ -5,17 +5,16 @@ pub use object_impl::*;
 pub use redis_rocksdb::RedisRocksdb;
 pub use wrap_db_impl::*;
 
-mod redis_rocksdb;
-mod list_impl;
-mod quick_list;
-mod zip_list;
-mod quick_list_node;
+mod bptree;
+mod heap;
 mod key_value_impl;
-mod stack_impl;
+mod list_impl;
 mod object_bit;
 mod object_impl;
-mod heap;
+mod quick_list;
+mod quick_list_node;
+mod redis_rocksdb;
 mod shared;
+mod stack_impl;
 mod wrap_db_impl;
-mod bptree;
-
+mod zip_list;
