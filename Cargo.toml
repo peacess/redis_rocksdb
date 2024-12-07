@@ -2,6 +2,7 @@
 name = "redis_rocksdb"
 version = "0.3.9"
 edition = "2021"
+resolver = "2"
 authors = ["Peace <peacess@163.com>"]
 exclude = [".gitignore"]
 description = "rust implement structure kv(key/value) embedded database, storage by rocksdb"
@@ -16,17 +17,16 @@ name = "redis_rocksdb"
 path = "src/lib.rs"
 
 [dependencies]
-log = "0.4.21"
-anyhow = "1.0.82"
-#ckb-rocksdb = "0.18.0"
-rocksdb = "0.22.0"
-#rocksdb = { version = "0.18.0", features = ["multi-threaded-cf"] }
+log = "0.4.22"
+anyhow = "1.0.94"
+rust-rocksdb = { package = "rust-rocksdb", version = "0.34.0", features = ["multi-threaded-cf","lz4"],optional = true}
+#rocksdb = { version = "0.22.0", features = ["multi-threaded-cf"] }
 binary-heap-plus = "0.5.0"
 compare = "0.1.0"
-xid = "1.0.3"
+xid = "1.1.1"
 
 [dev-dependencies]
-cargo-valgrind = "2.1.0"
+cargo-valgrind = "2.2.1"
 function_name = "0.3.0"
 criterion = "0.5.1"
 
