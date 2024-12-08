@@ -1,4 +1,4 @@
-extern crate rust_rocksdb as rocksdb;
+pub extern crate rust_rocksdb as rocksdb;
 
 pub use bptree::*;
 pub use error::RrError;
