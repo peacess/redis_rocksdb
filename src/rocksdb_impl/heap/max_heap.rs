@@ -1,6 +1,6 @@
 use crate::{
     rocksdb_impl::{
-        heap::heap::{FieldHeap, MaxHeapCompare},
+        heap::heap_::{FieldHeap, MaxHeapCompare},
         shared::{make_field_key, make_head_key},
     },
     Heap, LenType, RrError, WrapDb,
@@ -25,12 +25,7 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
             Some(f) => f,
         };
         let field_key = make_field_key(key, &field);
-        let v = {
-            match t.get(&field_key)? {
-                None => vec![],
-                Some(v) => v,
-            }
-        };
+        let v = { (t.get(&field_key)?).unwrap_or_default() };
         Ok(Some((field, v)))
     }
 
@@ -49,12 +44,7 @@ impl<T: WrapDb> Heap<T> for MaxHeap {
             Some(f) => f,
         };
         let field_key = make_field_key(key, &field);
-        let v = {
-            match t.get(&field_key)? {
-                None => vec![],
-                Some(v) => v,
-            }
-        };
+        let v = { (t.get(&field_key)?).unwrap_or_default() };
         t.put(&head_key, &heap.data)?;
         t.delete(&field_key)?;
         Ok(Some((field, v)))

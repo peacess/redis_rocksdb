@@ -4,17 +4,17 @@ use crate::RrError;
 pub enum Error {
     KeyNotFound,
     KeyAlreadyExists,
-    UnexpectedError,
-    KeyOverflowError,
-    ValueOverflowError,
-    TryFromSliceError(&'static str),
-    UTF8Error,
+    Unexpected,
+    KeyOverflow,
+    ValueOverflow,
+    TryFromSlice(&'static str),
+    UTF8,
     RrError(RrError),
 }
 
 impl std::convert::From<std::io::Error> for Error {
     fn from(_e: std::io::Error) -> Error {
-        Error::UnexpectedError
+        Error::Unexpected
     }
 }
 

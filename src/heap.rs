@@ -8,7 +8,6 @@ pub trait Heap<T> {
     /// 注： 最大小最小值是以 field来比较的，并不是value的
     /// 返回值 0: field, 1: field value
     fn pop(&self, t: &T, key: &[u8]) -> Result<Option<(Vec<u8>, Vec<u8>)>, RrError>;
-    ///
     fn push(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
 
     fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError>;

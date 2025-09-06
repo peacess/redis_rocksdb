@@ -4,7 +4,7 @@ use rocksdb::{Transaction, TransactionDB};
 
 use crate::{read_len_type, write_len_type, LenType, MetaKey, RrError, BYTES_LEN_TYPE};
 
-///
+/// Sample
 /// ```rust
 /// use redis_rocksdb::{LenType, MetaKey};
 ///
@@ -16,7 +16,6 @@ use crate::{read_len_type, write_len_type, LenType, MetaKey, RrError, BYTES_LEN_
 ///     value_key: Option<MetaKey>,
 /// }
 /// ```
-
 struct _QuickListNode {
     len_list: LenType,
     len_bytes: LenType,

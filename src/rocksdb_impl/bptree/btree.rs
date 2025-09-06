@@ -22,7 +22,7 @@ impl<'a, T: WrapDb> BTree<'a, T> {
         match &node.node_type {
             NodeType::Leaf(pairs) => Ok(pairs.number_keys == (2 * self.b - 1)),
             NodeType::Internal(_, keys) => Ok(keys.number_keys == (2 * self.b - 1)),
-            NodeType::None => Err(Error::UnexpectedError),
+            NodeType::None => Err(Error::Unexpected),
         }
     }
 
@@ -31,7 +31,7 @@ impl<'a, T: WrapDb> BTree<'a, T> {
             // A root cannot really be "underflowing" as it can contain less than b-1 keys / pointers.
             NodeType::Leaf(pairs) => Ok(pairs.number_keys < self.b - 1 && !node.is_root()),
             NodeType::Internal(_, keys) => Ok(keys.number_keys < self.b - 1 && !node.is_root()),
-            NodeType::None => Err(Error::UnexpectedError),
+            NodeType::None => Err(Error::Unexpected),
         }
     }
     //

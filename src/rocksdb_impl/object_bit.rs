@@ -56,7 +56,7 @@ impl<T: WrapDb> Object<T> for BitObject {
     fn get(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
         let new_key = make_field_key(key, field);
         let v = t.get(&new_key)?;
-        return Ok(v);
+        Ok(v)
     }
 
     fn get_all(&self, t: &T, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
@@ -75,7 +75,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             }
             Ok(Some(re))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
@@ -89,7 +89,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             }
             Ok(Some(re))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
@@ -99,7 +99,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             let few_field = BitField { data: fv };
             Ok(Some(few_field.len() as LenType))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
@@ -134,7 +134,7 @@ impl<T: WrapDb> Object<T> for BitObject {
 
     fn set_not_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         let new_key = make_field_key(key, field);
-        if let None = t.get(&new_key)? {
+        if t.get(&new_key)?.is_none() {
             t.put(&new_key, value)?;
 
             let head_key = make_head_key(key);
@@ -148,20 +148,20 @@ impl<T: WrapDb> Object<T> for BitObject {
                 t.put(&head_key, &few_field.data)?;
             }
 
-            return Ok(1);
+            Ok(1)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 
     fn set_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         let new_key = make_field_key(key, field);
-        if let Some(_) = t.get(&new_key)? {
+        if t.get(&new_key)?.is_some() {
             t.put(&new_key, value)?;
             //由于key是存在的，所以这里不用再修 head key了
-            return Ok(1);
+            Ok(1)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 
@@ -181,7 +181,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             }
             Ok(re)
         } else {
-            return Ok(vec![]);
+            Ok(vec![])
         }
     }
 
@@ -195,7 +195,7 @@ impl<T: WrapDb> Object<T> for BitObject {
             }
             t.delete(&head_key)?;
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -228,7 +228,7 @@ impl BitField {
             let p = self.data.as_ptr();
             unsafe {
                 ptr::copy(p.offset(end), p.offset(start).cast_mut(), self.data.len() - end as usize);
-                self.data.set_len(self.data.len() - field_size as usize - BitField::SIZE);
+                self.data.set_len(self.data.len() - field_size - BitField::SIZE);
                 let len = self.len() - 1;
                 write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
             }
@@ -248,11 +248,11 @@ impl BitField {
             let add = BitField::SIZE + field.len();
             self.data.reserve(add);
             unsafe {
-                let p = self.data.as_mut_ptr().offset(self.data.len() as isize);
+                let p = self.data.as_mut_ptr().add(self.data.len());
                 //写入字段的bytes数量
                 write_int_ptr(p, field.len() as SizeBitField);
                 //写入字段
-                ptr::copy_nonoverlapping(field.as_ptr(), p.offset(BitField::SIZE as isize), field.len());
+                ptr::copy_nonoverlapping(field.as_ptr(), p.add(BitField::SIZE), field.len());
                 let len = self.len() + 1;
                 //写入总的字段个数
                 write_int_ptr(self.data.as_mut_ptr(), len as LenBitField);
@@ -264,7 +264,7 @@ impl BitField {
 
     pub fn len(&self) -> usize {
         let l = read_int::<LenBitField>(&self.data);
-        return l as usize;
+        l as usize
     }
 
     /// 返回值 0： 开始偏移，如果没有找到为-1
@@ -286,10 +286,10 @@ impl BitField {
                 offset += field_size as isize;
             }
         }
-        return (-1, 0);
+        (-1, 0)
     }
 
-    pub(crate) fn new_field_it(&self) -> BitFieldIt {
+    pub(crate) fn new_field_it(&self) -> BitFieldIt<'_> {
         BitFieldIt::new(self)
     }
 }
@@ -337,6 +337,6 @@ impl<'a> Iterator for BitFieldIt<'a> {
         let it = FieldItValue {
             field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + BitField::SIZE as isize), field_size as usize) },
         };
-        return Some(it);
+        Some(it)
     }
 }

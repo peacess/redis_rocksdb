@@ -10,19 +10,19 @@ impl RedisRocksdb {
     }
 
     pub fn object() -> ObjectImp {
-        return ObjectImp {};
+        ObjectImp {}
     }
 
     pub fn bit_object() -> BitObject {
-        return BitObject {};
+        BitObject {}
     }
 
     pub fn max_heap() -> MaxHeap {
-        return MaxHeap {};
+        MaxHeap {}
     }
 
     pub fn mix_heap() -> MinHeap {
-        return MinHeap {};
+        MinHeap {}
     }
 
     pub fn get_db(&self) -> &rocksdb::TransactionDB {

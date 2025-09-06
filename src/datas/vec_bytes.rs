@@ -52,6 +52,12 @@ pub struct VecBytes<T: Metas> {
     _mark: PhantomData<T>,
 }
 
+impl<T: Metas> Default for VecBytes<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Metas> VecBytes<T> {
     pub const OFFSET_DATA: isize = (size_of::<LenType>() + size_of::<BytesType>()) as isize;
     pub const OFFSET_META: isize = Self::OFFSET_DATA + size_of::<u64>() as isize;
@@ -80,7 +86,7 @@ impl<T: Metas> VecBytes<T> {
         }
 
         for index in 0..keys_.len() {
-            keys.insert_with_index(data, keys_[index], Some(index as usize));
+            keys.insert_with_index(data, keys_[index], Some(index));
         }
         keys
     }
@@ -173,7 +179,7 @@ impl<T: Metas> VecBytes<T> {
         if self.number_keys as usize * size_of::<BytesMeta>() >= self.metas_capacity as usize {
             return true;
         }
-        return false;
+        false
     }
     fn expand(&mut self, data: &mut Vec<u8>) {
         let expand_size = Self::ONE_EXPAND;
@@ -186,11 +192,11 @@ impl<T: Metas> VecBytes<T> {
             let p_data = data.as_mut_ptr().offset(Self::OFFSET_META + old_metas_capacity);
             ptr::copy(
                 p_data,
-                p_data.offset(expand_size as isize),
+                p_data.offset(expand_size),
                 data.len() - expand_size as usize - Self::OFFSET_META as usize - old_metas_capacity as usize,
             );
             write_int_ptr(
-                data.as_mut_ptr().offset(size_of::<LenType>() as isize),
+                data.as_mut_ptr().add(size_of::<LenType>()),
                 old_metas_capacity as LenType + expand_size as LenType,
             );
         };
@@ -198,12 +204,12 @@ impl<T: Metas> VecBytes<T> {
     }
 
     fn reduce(&mut self, data: &mut Vec<u8>) {
-        let reduce_size = Self::ONE_EXPAND as isize;
+        let reduce_size = Self::ONE_EXPAND;
         let mut temp_fields = Vec::<u8>::with_capacity(data.len() - self.metas_capacity as usize - Self::OFFSET_META as usize);
 
         let mut head_array = unsafe {
             Vec::from_raw_parts(
-                data.as_mut_ptr().offset(Self::OFFSET_META as isize) as *mut BytesMeta,
+                data.as_mut_ptr().offset(Self::OFFSET_META) as *mut BytesMeta,
                 self.number_keys as usize,
                 self.metas_capacity as usize / mem::size_of::<BytesMeta>(),
             )
@@ -230,13 +236,13 @@ impl<T: Metas> VecBytes<T> {
         self.metas_capacity -= reduce_size as u64;
         unsafe {
             temp_fields.set_len(offset as usize);
-            write_int_ptr(data.as_mut_ptr().offset(size_of::<LenType>() as isize), self.metas_capacity as LenType);
+            write_int_ptr(data.as_mut_ptr().add(size_of::<LenType>()), self.metas_capacity as LenType);
             ptr::copy_nonoverlapping(
                 temp_fields.as_ptr(),
                 data.as_mut_ptr().offset(Self::OFFSET_META + self.metas_capacity as isize),
                 temp_fields.len(),
             );
-            data.set_len((Self::OFFSET_META as usize + self.metas_capacity as usize + temp_fields.len()) as usize);
+            data.set_len(Self::OFFSET_META as usize + self.metas_capacity as usize + temp_fields.len());
         }
     }
 }
@@ -255,7 +261,7 @@ pub struct KeyMetas {
 
 impl Drop for KeyMetas {
     fn drop(&mut self) {
-        let data = mem::replace(&mut self.data, vec![]);
+        let data = std::mem::take(&mut self.data);
         mem::forget(data);
     }
 }
@@ -279,7 +285,7 @@ impl Metas for KeyMetas {
                 let bytes_ = read_int_ptr::<BytesType>(data.as_ptr().offset(start));
                 start += size_of::<BytesType>() as isize;
                 let o_key = &data[start as usize..start as usize + bytes_ as usize];
-                return key.cmp(o_key);
+                key.cmp(o_key)
             })
         }
     }

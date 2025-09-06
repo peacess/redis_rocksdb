@@ -243,7 +243,7 @@ impl RedisList for RedisRocksdb {
             }
         } else if count < 0 {
             //反向遍历
-            let count = count.abs() as usize;
+            let count = count.unsigned_abs() as usize;
             let mut node_key = quick.right().ok_or(RrError::none_error("left key"))?.clone();
             let mut node = QuickListNode::get(&tr, node_key.as_ref())?.ok_or(RrError::none_error("node"))?;
 

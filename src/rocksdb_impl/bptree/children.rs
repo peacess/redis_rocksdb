@@ -16,7 +16,7 @@ pub struct Children {
 
 impl From<&[u8]> for Children {
     fn from(data: &[u8]) -> Self {
-        let offset = Node::OFFSET_NODE_DATA as isize;
+        let offset = Node::OFFSET_NODE_DATA;
         let number_children = read_int_ptr(unsafe { data.as_ptr().offset(offset) });
         let bytes_number = read_int_ptr(unsafe { data.as_ptr().offset(offset + size_of::<LenType>() as isize) });
         Self {
@@ -27,17 +27,23 @@ impl From<&[u8]> for Children {
     }
 }
 
+impl Default for Children {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Children {
     pub const OFFSET_DATA: isize = (size_of::<LenType>() + size_of::<BytesType>()) as isize;
     pub fn new() -> Self {
         Children {
             number_children: 0,
-            offset: Node::OFFSET_NODE_DATA as isize,
+            offset: Node::OFFSET_NODE_DATA,
             bytes_number: 0,
         }
     }
     pub fn read_from(&mut self, data: &[u8]) {
-        self.offset = Node::OFFSET_NODE_DATA as isize;
+        self.offset = Node::OFFSET_NODE_DATA;
         unsafe {
             self.number_children = read_int_ptr(data.as_ptr().offset(self.offset));
             self.bytes_number = read_int_ptr(data.as_ptr().offset(self.offset + size_of::<LenType>() as isize));
@@ -59,7 +65,7 @@ impl Children {
     }
 
     pub fn offset_keys(&self) -> isize {
-        self.offset + self.bytes_number as isize + Children::OFFSET_DATA as isize
+        self.offset + self.bytes_number as isize + Children::OFFSET_DATA
     }
 
     pub fn add(node: &mut Node, children: &[&[u8]]) -> Children {

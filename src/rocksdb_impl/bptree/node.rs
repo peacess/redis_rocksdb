@@ -25,7 +25,7 @@ impl Node {
 
     pub fn new(node_type: NodeType) -> Node {
         let mut data = Vec::with_capacity(Node::OFFSET_NODE_DATA as usize);
-        data.resize(data.capacity(), 0);
+        // data.resize(data.capacity(), 0);
         data[0] = u8::from(&node_type);
         let mut node = Node { node_type, data };
         node.set_node_type(&[]);
@@ -40,7 +40,7 @@ impl Node {
                 unsafe {
                     self.data.set_len(Node::OFFSET_NODE_DATA as usize);
                 }
-                let t = [0 as u8; Node::OFFSET_NODE_DATA as usize];
+                let t = [0_u8; Node::OFFSET_NODE_DATA as usize];
                 self.data.extend_from_slice(&t);
             }
             NodeType::Internal(_children, _keys) => {
@@ -48,7 +48,7 @@ impl Node {
                     unsafe {
                         self.data.set_len(Node::OFFSET_NODE_DATA as usize);
                     }
-                    let t = [0 as u8; Node::OFFSET_NODE_DATA as usize];
+                    let t = [0_u8; Node::OFFSET_NODE_DATA as usize];
                     self.data.extend_from_slice(&t);
                 } else {
                     self.data.reserve(data.len() - self.data.len());
@@ -63,7 +63,7 @@ impl Node {
                     unsafe {
                         self.data.set_len(Node::OFFSET_NODE_DATA as usize);
                     }
-                    let t = [0 as u8; Node::OFFSET_NODE_DATA as usize];
+                    let t = [0_u8; Node::OFFSET_NODE_DATA as usize];
                     self.data.extend_from_slice(&t);
                 } else {
                     self.data.reserve(data.len() - self.data.len());
@@ -127,7 +127,7 @@ impl Node {
 
                 let mut new_data = Vec::with_capacity(Node::OFFSET_NODE_DATA as usize + node.data.len() / 2);
                 // let mut re = Vec::with_capacity(keys.bytes_number as usize);
-                let new_offset = Node::OFFSET_NODE_DATA as isize;
+                let new_offset = Node::OFFSET_NODE_DATA;
                 unsafe {
                     new_children.set_number_children(children.number_children - at as LenType, &mut new_data);
                     children.set_number_children(at as LenType, &mut node.data);
@@ -136,7 +136,7 @@ impl Node {
                     let count = new_children.number_children as usize * DbKey::LEN_DB_KEY;
                     std::ptr::copy_nonoverlapping(
                         node.data.as_ptr().offset(start),
-                        new_data.as_mut_ptr().offset(Node::OFFSET_NODE_DATA as isize + Children::OFFSET_DATA),
+                        new_data.as_mut_ptr().offset(Node::OFFSET_NODE_DATA + Children::OFFSET_DATA),
                         count,
                     );
 
@@ -200,7 +200,7 @@ impl Node {
                     },
                 ))
             }
-            NodeType::None => Err(Error::UnexpectedError),
+            NodeType::None => Err(Error::Unexpected),
         }
     }
 }
@@ -230,7 +230,7 @@ impl TryFrom<Vec<u8>> for Node {
                     data,
                 })
             }
-            NodeType::None => Err(Error::UnexpectedError),
+            NodeType::None => Err(Error::Unexpected),
         }
     }
 }

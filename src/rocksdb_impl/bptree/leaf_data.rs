@@ -38,7 +38,7 @@ pub struct KeyValueMetas {
 
 impl Drop for KeyValueMetas {
     fn drop(&mut self) {
-        let data = mem::replace(&mut self.data, vec![]);
+        let data = std::mem::take(&mut self.data);
         mem::forget(data);
     }
 }
@@ -62,7 +62,7 @@ impl Metas for KeyValueMetas {
                 let bytes_ = read_int_ptr::<BytesType>(data.as_ptr().offset(start));
                 start += size_of::<BytesType>() as isize;
                 let o_key = &data[start as usize..start as usize + bytes_ as usize];
-                return key.cmp(o_key);
+                key.cmp(o_key)
             })
         }
     }

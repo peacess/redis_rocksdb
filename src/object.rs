@@ -8,7 +8,6 @@ pub trait Object<T> {
     fn dels(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<LenType, RrError>;
     /// true: 表示存在, false: key或field不存在
     fn exists(&self, t: &T, key: &[u8], field: &[u8]) -> Result<bool, RrError>;
-    ///
     fn get(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError>;
     /// 返回所有字段与值
     fn get_all(&self, t: &T, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError>;
@@ -18,7 +17,6 @@ pub trait Object<T> {
     fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError>;
     /// 返回值与请求顺序一样，如果字段不存在值为Ｎone
     fn mget(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<Vec<Option<Vec<u8>>>, RrError>;
-    ///
     fn set(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<(), RrError>;
     // fn mset<K: Bytes, V: Bytes>(&mut self, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError>;
     /// 设置成功，返回 1 。 如果给定字段已经存在且没有操作被执行，返回 0

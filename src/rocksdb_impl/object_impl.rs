@@ -33,7 +33,7 @@ impl<T: WrapDb> Object<T> for ObjectImp {
     fn get(&self, t: &T, key: &[u8], field: &[u8]) -> Result<Option<Vec<u8>>, RrError> {
         let new_key = make_field_key(key, field);
         let v = t.get(&new_key)?;
-        return Ok(v);
+        Ok(v)
     }
 
     fn get_all(&self, t: &T, key: &[u8]) -> Result<Option<Vec<(Vec<u8>, Vec<u8>)>>, RrError> {
@@ -73,7 +73,7 @@ impl<T: WrapDb> Object<T> for ObjectImp {
         let it = t.prefix_iterator(&new_key);
         let l = it.count();
         if l == 0 {
-            return Ok(None);
+            Ok(None)
         } else {
             Ok(Some(l as LenType))
         }
@@ -100,21 +100,21 @@ impl<T: WrapDb> Object<T> for ObjectImp {
 
     fn set_not_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         let new_key = make_field_key(key, field);
-        if let None = t.get(&new_key)? {
+        if t.get(&new_key)?.is_none() {
             t.put(&new_key, value)?;
-            return Ok(1);
+            Ok(1)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 
     fn set_exist(&self, t: &T, key: &[u8], field: &[u8], value: &[u8]) -> Result<i32, RrError> {
         let new_key = make_field_key(key, field);
-        if let Some(_) = t.get(&new_key)? {
+        if t.get(&new_key)?.is_some() {
             t.put(&new_key, value)?;
-            return Ok(1);
+            Ok(1)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 

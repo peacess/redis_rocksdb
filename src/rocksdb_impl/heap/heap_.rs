@@ -72,10 +72,10 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         let mut bst_capt = Self::BST_EXPAND;
         if data.is_empty() {
             data.resize(Self::BST_OFFSET as usize + bst_capt as usize, 0);
-            unsafe { write_int_ptr(data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), bst_capt as LenType) }
+            unsafe { write_int_ptr(data.as_mut_ptr().add(mem::size_of::<LenType>()), bst_capt as LenType) }
         } else {
             unsafe {
-                bst_capt = read_int_ptr::<LenType>(data.as_ptr().offset(mem::size_of::<LenType>() as isize)) as isize;
+                bst_capt = read_int_ptr::<LenType>(data.as_ptr().add(mem::size_of::<LenType>())) as isize;
             }
         };
         FieldHeap {
@@ -92,13 +92,13 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     fn make_heap(&mut self) -> binary_heap_plus::BinaryHeap<FieldMeta, T> {
         let head_array = unsafe {
             Vec::from_raw_parts(
-                self.data.as_mut_ptr().offset(Self::BST_OFFSET as isize) as *mut FieldMeta,
+                self.data.as_mut_ptr().offset(Self::BST_OFFSET) as *mut FieldMeta,
                 self.len(),
                 self.bst_capt as usize / mem::size_of::<FieldMeta>(),
             )
         };
         let t = unsafe { binary_heap_plus::BinaryHeap::from_vec_cmp_raw(head_array, self.comparer.as_ref().expect("").clone(), false) };
-        return t;
+        t
     }
 
     fn drop_heap(&mut self, heap: binary_heap_plus::BinaryHeap<FieldMeta, T>) {
@@ -117,7 +117,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             let start = v.offset + Self::BST_OFFSET + self.bst_capt;
             let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
-            let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
+            let re = self.data[start as usize + Self::SIZE..end as usize].to_vec();
             Some(re)
         } else {
             None
@@ -136,7 +136,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             let start = v.offset + Self::BST_OFFSET + self.bst_capt;
             let field_size = unsafe { read_int_ptr::<SizeField>(self.data.as_ptr().offset(start)) };
             let end = start + Self::SIZE as isize + field_size as isize;
-            let re = self.data[start as usize + Self::SIZE as usize..end as usize].to_vec();
+            let re = self.data[start as usize + Self::SIZE..end as usize].to_vec();
             //如果删除的数据，等于或超过一次扩展的数据，那么进行清理，把没有使用的空间删除（压缩数据）
             if self.bst_capt as usize - len_field * mem::size_of::<FieldMeta>() > Self::BST_EXPAND as usize {
                 self.reduce();
@@ -159,11 +159,11 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         self.data.reserve(add);
         let len_data = self.data.len();
         unsafe {
-            let p = self.data.as_mut_ptr().offset(len_data as isize);
+            let p = self.data.as_mut_ptr().add(len_data);
             //写入字段的bytes数量
             write_int_ptr(p, field.len() as SizeField);
             //写入字段
-            ptr::copy_nonoverlapping(field.as_ptr(), p.offset(Self::SIZE as isize), field.len());
+            ptr::copy_nonoverlapping(field.as_ptr(), p.add(Self::SIZE), field.len());
             self.data.set_len(self.data.len() + add)
         }
 
@@ -179,7 +179,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
 
     pub fn len(&self) -> usize {
         let l = read_int::<LenType>(&self.data);
-        return l as usize;
+        l as usize
     }
     pub fn set_len(&mut self, l: usize) {
         write_int::<LenType>(&mut self.data, l as LenType);
@@ -189,7 +189,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
     }
 
     fn expand(&mut self) {
-        let expand_size = Self::BST_EXPAND as isize;
+        let expand_size = Self::BST_EXPAND;
         self.data.reserve(expand_size as usize);
         unsafe {
             self.data.set_len(self.data.len() + expand_size as usize);
@@ -199,11 +199,11 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
             let p_data = self.data.as_mut_ptr().offset(Self::BST_OFFSET + old_capt);
             ptr::copy(
                 p_data,
-                p_data.offset(expand_size as isize),
+                p_data.offset(expand_size),
                 self.data.len() - expand_size as usize - Self::BST_OFFSET as usize - old_capt as usize,
             );
             write_int_ptr(
-                self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize),
+                self.data.as_mut_ptr().add(mem::size_of::<LenType>()),
                 old_capt as LenType + expand_size as LenType,
             );
         };
@@ -239,7 +239,7 @@ impl<T: Compare<FieldMeta> + Clone> FieldHeap<T> {
         self.bst_capt -= reduce_size;
         unsafe {
             temp_fields.set_len(offset as usize);
-            write_int_ptr(self.data.as_mut_ptr().offset(mem::size_of::<LenType>() as isize), self.bst_capt as LenType);
+            write_int_ptr(self.data.as_mut_ptr().add(mem::size_of::<LenType>()), self.bst_capt as LenType);
             ptr::copy_nonoverlapping(
                 temp_fields.as_ptr(),
                 self.data.as_mut_ptr().offset(Self::BST_OFFSET + self.bst_capt),
@@ -292,7 +292,7 @@ impl<'a, T: Compare<FieldMeta> + Clone> Iterator for FieldIt<'a, T> {
         let it = FieldItValue {
             field: unsafe { slice::from_raw_parts(self.data.data.as_ptr().offset(self.offset + FieldHeap::<T>::SIZE as isize), field_size as usize) },
         };
-        return Some(it);
+        Some(it)
     }
 }
 
