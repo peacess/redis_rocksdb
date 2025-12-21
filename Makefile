@@ -2,7 +2,7 @@
 .PHONY: clean upgrade format check build build-all rebuild release test build_test
 
 clean:
-	cargo clean
+	cargo clean && rm -f Cargo.lock
 upgrade:
 	cargo upgrade
 	cargo update
