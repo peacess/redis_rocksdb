@@ -2,7 +2,7 @@ use core::ptr;
 
 use rocksdb::{Transaction, TransactionDB};
 
-use crate::{read_int, write_int, EndianScalar, LenType, RrError, BYTES_LEN_TYPE};
+use crate::{BYTES_LEN_TYPE, EndianScalar, LenType, RrError, read_int, write_int};
 
 /// Sample
 /// ```rust
@@ -29,11 +29,7 @@ impl<'a> ZipListNode<'a> {
 
     fn from_start(bytes: &'a [u8]) -> Option<Self> {
         let bytes_node = ZipListNode::read_bytes_of_value(bytes) + ZipListNode::SIZE_NODE_TYPE * 2;
-        if bytes_node > bytes.len() {
-            None
-        } else {
-            Some(Self(bytes, 0, bytes_node))
-        }
+        if bytes_node > bytes.len() { None } else { Some(Self(bytes, 0, bytes_node)) }
     }
 
     fn from_end(bytes: &'a [u8]) -> Option<Self> {
@@ -222,13 +218,7 @@ impl ZipList {
 
     /// 如果zip list是空的，index给任值都会插入到第一个元素
     pub fn insert_right(&mut self, index: i32, value: &[u8]) -> bool {
-        let left_index = {
-            if self.len() == 0 {
-                0
-            } else {
-                index + 1
-            }
-        };
+        let left_index = { if self.len() == 0 { 0 } else { index + 1 } };
         self.insert_left(left_index, value)
     }
 
@@ -320,58 +310,46 @@ impl ZipList {
         let mut removes = Vec::<(isize, isize)>::new();
         if count > 0 {
             let mut it = ZipListIter::new(self);
-            loop {
-                if let Some(node) = it.next() {
-                    if value.eq(node.value()) {
-                        let pre_offset = it.prev_offset();
-                        if let Some(offset) = pre_offset {
-                            removes.push((offset as isize, (it.offset()) as isize));
-                            if removes.len() >= count as usize {
-                                break;
-                            }
-                        } else {
-                            log::error!("inner error");
+            while let Some(node) = it.next() {
+                if value.eq(node.value()) {
+                    let pre_offset = it.prev_offset();
+                    if let Some(offset) = pre_offset {
+                        removes.push((offset as isize, (it.offset()) as isize));
+                        if removes.len() >= count as usize {
+                            break;
                         }
+                    } else {
+                        log::error!("inner error");
                     }
-                } else {
-                    break;
                 }
             }
         } else if count < 0 {
             let mut it = ZipListIter::new(self);
             it.start_cur = it.zip_list.len();
-            loop {
-                if let Some(node) = it.next_back() {
-                    if value.eq(node.value()) {
-                        let next_offset = it.next_offset();
-                        if let Some(offset) = next_offset {
-                            removes.push((it.offset() as isize, (offset) as isize));
-                            if removes.len() >= count.unsigned_abs() as usize {
-                                break;
-                            }
-                        } else {
-                            log::error!("inner error");
+            while let Some(node) = it.next_back() {
+                if value.eq(node.value()) {
+                    let next_offset = it.next_offset();
+                    if let Some(offset) = next_offset {
+                        removes.push((it.offset() as isize, (offset) as isize));
+                        if removes.len() >= count.unsigned_abs() as usize {
+                            break;
                         }
+                    } else {
+                        log::error!("inner error");
                     }
-                } else {
-                    break;
                 }
             }
             removes.reverse() //这是从后面开始遍历的，所以需要反过来
         } else {
             let mut it = ZipListIter::new(self);
-            loop {
-                if let Some(node) = it.next() {
-                    if value.eq(node.value()) {
-                        let pre_offset = it.prev_offset();
-                        if let Some(offset) = pre_offset {
-                            removes.push((offset as isize, (it.offset()) as isize));
-                        } else {
-                            log::error!("inner error");
-                        }
+            while let Some(node) = it.next() {
+                if value.eq(node.value()) {
+                    let pre_offset = it.prev_offset();
+                    if let Some(offset) = pre_offset {
+                        removes.push((offset as isize, (it.offset()) as isize));
+                    } else {
+                        log::error!("inner error");
                     }
-                } else {
-                    break;
                 }
             }
         }

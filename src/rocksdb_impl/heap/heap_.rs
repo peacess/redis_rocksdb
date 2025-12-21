@@ -2,7 +2,7 @@ use std::{cmp::Ordering, mem, mem::ManuallyDrop, ptr, slice};
 
 use compare::Compare;
 
-use crate::{read_int, read_int_ptr, write_int, write_int_ptr, LenType};
+use crate::{LenType, read_int, read_int_ptr, write_int, write_int_ptr};
 
 #[derive(Clone)]
 pub(crate) struct MaxHeapCompare {

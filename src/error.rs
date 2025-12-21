@@ -42,11 +42,7 @@ impl Display for RrError {
 
 impl std::error::Error for RrError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        if let RrError::Other(e) = self {
-            e.source()
-        } else {
-            None
-        }
+        if let RrError::Other(e) = self { e.source() } else { None }
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
-    rocksdb_impl::shared::{get_field_from_key, make_field_key},
     LenType, Object, RrError, WrapDb,
+    rocksdb_impl::shared::{get_field_from_key, make_field_key},
 };
 
 /// 直接使用key + field的方式，把value的值存入数据库中
@@ -45,11 +45,7 @@ impl<T: WrapDb> Object<T> for ObjectImp {
             let field_key = get_field_from_key(key, &kk.0);
             re.push((field_key.to_vec(), kk.1.to_vec()));
         }
-        if re.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(re))
-        }
+        if re.is_empty() { Ok(None) } else { Ok(Some(re)) }
     }
 
     fn keys(&self, t: &T, key: &[u8]) -> Result<Option<Vec<Vec<u8>>>, RrError> {
@@ -61,22 +57,14 @@ impl<T: WrapDb> Object<T> for ObjectImp {
             let field_key = get_field_from_key(key, &kk.0);
             re.push(field_key.to_vec());
         }
-        if re.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(re))
-        }
+        if re.is_empty() { Ok(None) } else { Ok(Some(re)) }
     }
 
     fn len(&self, t: &T, key: &[u8]) -> Result<Option<LenType>, RrError> {
         let new_key = make_field_key(key, &[]);
         let it = t.prefix_iterator(&new_key);
         let l = it.count();
-        if l == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(l as LenType))
-        }
+        if l == 0 { Ok(None) } else { Ok(Some(l as LenType)) }
     }
 
     fn mget(&self, t: &T, key: &[u8], fields: &[&[u8]]) -> Result<Vec<Option<Vec<u8>>>, RrError> {

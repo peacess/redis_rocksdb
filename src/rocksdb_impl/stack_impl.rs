@@ -1,6 +1,6 @@
 use std::{ops::Deref, ptr};
 
-use crate::{read_int, write_int, Bytes, RedisRocksdb, RrError, Stack};
+use crate::{Bytes, RedisRocksdb, RrError, Stack, read_int, write_int};
 
 impl Stack for RedisRocksdb {
     fn index<K: Bytes>(&self, key: &K, _index: i64) -> Result<Vec<u8>, RrError> {

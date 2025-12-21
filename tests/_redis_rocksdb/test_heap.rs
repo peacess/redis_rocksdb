@@ -4,7 +4,7 @@ use std::{
 };
 
 use function_name::named;
-use redis_rocksdb::{write_int, Heap, MaxHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB};
+use redis_rocksdb::{Heap, MaxHeap, RedisRocksdb, WrapDb, WrapRocksDb, WrapTransaction, WrapTransactionDB, write_int};
 
 use crate::_redis_rocksdb::kits::{open_rocks_db, open_transaction_db};
 

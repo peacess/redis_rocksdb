@@ -1,11 +1,11 @@
 use std::{
     marker::PhantomData,
     mem,
-    mem::{size_of, ManuallyDrop},
+    mem::{ManuallyDrop, size_of},
     ptr,
 };
 
-use crate::{read_int_ptr, write_int_ptr, BytesType, LenType, MetaKey};
+use crate::{BytesType, LenType, MetaKey, read_int_ptr, write_int_ptr};
 
 #[derive(Debug, Clone)]
 pub struct BytesMeta {
@@ -85,8 +85,8 @@ impl<T: Metas> VecBytes<T> {
             keys.expand(data);
         }
 
-        for index in 0..keys_.len() {
-            keys.insert_with_index(data, keys_[index], Some(index));
+        for (index, key) in keys_.iter().enumerate() {
+            keys.insert_with_index(data, key, Some(index));
         }
         keys
     }

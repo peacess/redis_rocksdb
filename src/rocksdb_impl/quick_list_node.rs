@@ -2,7 +2,7 @@ use core::mem;
 
 use rocksdb::{Transaction, TransactionDB};
 
-use crate::{read_len_type, write_len_type, LenType, MetaKey, RrError, BYTES_LEN_TYPE};
+use crate::{BYTES_LEN_TYPE, LenType, MetaKey, RrError, read_len_type, write_len_type};
 
 /// Sample
 /// ```rust

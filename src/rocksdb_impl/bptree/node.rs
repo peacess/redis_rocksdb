@@ -2,10 +2,10 @@ use std::{convert::TryFrom, mem::size_of};
 
 use super::{error::Error, node_type::NodeType};
 use crate::{
+    BytesType, LenType,
     datas::VecBytes,
     read_int_ptr,
     rocksdb_impl::bptree::{children::Children, db_key::DbKey, kits::new_db_key, leaf_data::LeafData, node_type::Keys},
-    BytesType, LenType,
 };
 
 /// Node represents a node in the BTree occupied by a single page in memory.
@@ -45,32 +45,22 @@ impl Node {
             }
             NodeType::Internal(_children, _keys) => {
                 if data.is_empty() {
-                    unsafe {
-                        self.data.set_len(Node::OFFSET_NODE_DATA as usize);
-                    }
                     let t = [0_u8; Node::OFFSET_NODE_DATA as usize];
+                    self.data.clear();
                     self.data.extend_from_slice(&t);
                 } else {
-                    self.data.reserve(data.len() - self.data.len());
-                    unsafe {
-                        self.data.set_len(data.len());
-                    }
-                    self.data.copy_from_slice(data);
+                    self.data.clear();
+                    self.data.extend_from_slice(data);
                 }
             }
             NodeType::Leaf(_leaf) => {
                 if data.is_empty() {
-                    unsafe {
-                        self.data.set_len(Node::OFFSET_NODE_DATA as usize);
-                    }
                     let t = [0_u8; Node::OFFSET_NODE_DATA as usize];
+                    self.data.clear();
                     self.data.extend_from_slice(&t);
                 } else {
-                    self.data.reserve(data.len() - self.data.len());
-                    unsafe {
-                        self.data.set_len(data.len());
-                    }
-                    self.data.copy_from_slice(data);
+                    self.data.clear();
+                    self.data.extend_from_slice(data);
                 }
             }
         }
