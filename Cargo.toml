@@ -19,7 +19,7 @@ path = "src/lib.rs"
 [dependencies]
 log = "0.4.29"
 anyhow = "1.0.100"
-rust-rocksdb = { version = "0.43.0", features = ["multi-threaded-cf","lz4"]}
+rust-rocksdb = { version = "0.45.0", features = ["multi-threaded-cf","lz4"]}
 #rocksdb = { version = "0.22.0", features = ["multi-threaded-cf"] }
 binary-heap-plus = "0.5.0"
 compare = "0.1.0"
@@ -27,11 +27,9 @@ xid = "1.1.1"
 
 [dev-dependencies]
 function_name = "0.3.0"
-criterion = "0.7.0"
+criterion = "0.8.1"
 
 [[bench]]
 name = "copy_vec_benchmark"
 path = "benches/copy_vec_benchmark.rs"
 harness = false
-
-
